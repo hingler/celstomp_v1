@@ -376,6 +376,7 @@
         const loadProjBtn = document.getElementById("loadProj");
         const loadFileInp = document.getElementById("loadFileInp");
         const exportImgSeqBtn = document.getElementById("exportImgSeqBtn") || document.getElementById("exportImgSeq");
+        const stabilizationSelect = $("stabilizationLevel");
         function canvasToBlob(canvas, type = "image/png", quality) {
             return new Promise(resolve => {
                 canvas.toBlob(b => resolve(b), type, quality);
@@ -543,7 +544,12 @@
         const fillBrushTrailColor = "#ff1744";
         const pressureCache = new Map;
         const PRESSURE_MIN = .05;
-        const PRESSURE_SMOOTH = .45;
+        let stabilizationLevel = 5;
+        let pressureSmooth = .45;
+        function pressureSmoothFromLevel(level) {
+            const lv = Math.max(0, Math.min(10, Number(level) || 0));
+            return Math.max(.2, Math.min(1, 1 - lv * .08));
+        }
         let rectSelection = {
             active: false,
             moving: false,
@@ -3584,7 +3590,7 @@
             const isPen = e?.pointerType === "pen";
             const raw = typeof e?.pressure === "number" && e.pressure > 0 ? e.pressure : isPen ? .35 : 1;
             const prev = pressureCache.has(pid) ? pressureCache.get(pid) : raw;
-            const smoothed = prev + (raw - prev) * PRESSURE_SMOOTH;
+            const smoothed = prev + (raw - prev) * pressureSmooth;
             const out = Math.max(PRESSURE_MIN, Math.min(1, smoothed));
             pressureCache.set(pid, out);
             return out;
@@ -8646,6 +8652,15 @@
         aaToggle?.addEventListener("change", e => {
             antiAlias = e.target.checked;
             renderAll();
+        });
+        const applyStabilizationLevel = v => {
+            stabilizationLevel = Math.max(0, Math.min(10, parseInt(v, 10) || 0));
+            pressureSmooth = pressureSmoothFromLevel(stabilizationLevel);
+            safeSetValue(stabilizationSelect, stabilizationLevel);
+        };
+        applyStabilizationLevel(stabilizationLevel);
+        stabilizationSelect?.addEventListener("change", e => {
+            applyStabilizationLevel(e.target.value);
         });
         const clampBrushSizeUiValue = raw => {
             const n = parseInt(raw, 10);
