@@ -10,6 +10,9 @@
     ];
 
     const appScripts = [
+        './js/menu-wires.js',
+        './js/mobile-native-zoom-guard.js',
+        './js/mount-island-dock.js',
         './js/ui-components.js',
         './js/omggif.js',
         './celstomp-imgseq.js',
