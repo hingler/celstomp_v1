@@ -1,3 +1,7 @@
+
+
+
+
 (() => {
     "use strict";
 
@@ -31,6 +35,7 @@
         _cursorColorPicker = inp;
         return inp;
     }
+
     function openColorPickerAtCursor(e, initialHex, onPick) {
         const picker = ensureCursorColorPicker();
         const pad = 8;
@@ -153,6 +158,7 @@
             once: true
         }); else fn();
     }
+    
     ready(() => {
         let contentW = 960;
         let contentH = 540;
@@ -270,129 +276,8 @@
         const brushShapeTooltip = document.getElementById("brushShapeTooltip");
         const eraserOptionsPopup = document.getElementById("eraserOptionsPopup");
 
-        // menu helper functions
 
-        function openPopupAt(popup, x, y) {
-            if (!popup) return;
-            popup.style.left = `${x}px`;
-            popup.style.top = `${y}px`;
-            popup.setAttribute("aria-hidden", "false");
-            popup.classList.add("open");
-        }
-        function closePopup(popup) {
-            if (!popup) return;
-            popup.setAttribute("aria-hidden", "true");
-            popup.classList.remove("open");
-        }
-        function menuFocusableItems(panel) {
-            if (!panel) return [];
-            return Array.from(panel.querySelectorAll("button:not([disabled]), select, input[type='checkbox']")).filter(el => !el.hidden);
-        }
-        function closeSubmenu(triggerBtn, panel) {
-            if (panel) panel.hidden = true;
-            if (triggerBtn) triggerBtn.setAttribute("aria-expanded", "false");
-        }
-        function openSubmenu(triggerBtn, panel) {
-            if (!panel || !triggerBtn) return;
-            panel.hidden = false;
-            triggerBtn.setAttribute("aria-expanded", "true");
-        }
-        function closeTopMenus() {
-            [ [ menuFileBtn, menuFilePanel ], [ menuEditBtn, menuEditPanel ], [ menuToolBehaviorBtn, menuToolBehaviorPanel ] ].forEach(([btn, panel]) => {
-                if (panel) panel.hidden = true;
-                btn?.setAttribute("aria-expanded", "false");
-            });
-            [ [ menuExportBtn, menuExportPanel ], [ menuAutosaveBtn, menuAutosavePanel ] ].forEach(([btn, panel]) => closeSubmenu(btn, panel));
-        }
-        function openTopMenu(btn, panel) {
-            if (!btn || !panel) return;
-            closeTopMenus();
-            panel.hidden = false;
-            btn.setAttribute("aria-expanded", "true");
-            const first = menuFocusableItems(panel)[0];
-            if (first && window.matchMedia("(min-width: 721px)").matches) {
-                try {
-                    first.focus({
-                        preventScroll: true
-                    });
-                } catch {}
-            }
-        }
-        function wireTopMenus() {
-            if (!topMenuBar || topMenuBar.dataset.wiredMenus === "1") return;
-            topMenuBar.dataset.wiredMenus = "1";
-            const triggerPairs = [ [ menuFileBtn, menuFilePanel ], [ menuEditBtn, menuEditPanel ], [ menuToolBehaviorBtn, menuToolBehaviorPanel ] ];
-            triggerPairs.forEach(([btn, panel]) => {
-                if (!btn || !panel) return;
-                btn.addEventListener("click", e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const open = !panel.hidden;
-                    if (open) closeTopMenus(); else openTopMenu(btn, panel);
-                });
-                btn.addEventListener("keydown", e => {
-                    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openTopMenu(btn, panel);
-                    }
-                });
-            });
-            [ [ menuExportBtn, menuExportPanel ], [ menuAutosaveBtn, menuAutosavePanel ] ].forEach(([btn, panel]) => {
-                btn?.addEventListener("click", e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (panel?.hidden) openSubmenu(btn, panel); else closeSubmenu(btn, panel);
-                });
-                btn?.addEventListener("keydown", e => {
-                    if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openSubmenu(btn, panel);
-                        const first = menuFocusableItems(panel)[0];
-                        first?.focus?.();
-                    }
-                });
-            });
-            const wirePanelKeys = panel => {
-                panel?.addEventListener("keydown", e => {
-                    const items = menuFocusableItems(panel);
-                    if (!items.length) return;
-                    const idx = Math.max(0, items.indexOf(document.activeElement));
-                    if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        items[(idx + 1) % items.length].focus();
-                    } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        items[(idx - 1 + items.length) % items.length].focus();
-                    } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        closeTopMenus();
-                    } else if (e.key === "ArrowLeft" && panel?.classList?.contains("topSubmenuPanel")) {
-                        e.preventDefault();
-                        const trigger = topMenuBar?.querySelector(`.topSubmenuTrigger[aria-controls="${panel.id}"]`) || null;
-                        closeSubmenu(trigger, panel);
-                        trigger?.focus?.();
-                    }
-                });
-            };
-            wirePanelKeys(menuFilePanel);
-            wirePanelKeys(menuEditPanel);
-            wirePanelKeys(menuToolBehaviorPanel);
-            wirePanelKeys(menuExportPanel);
-            wirePanelKeys(menuAutosavePanel);
-            document.addEventListener("mousedown", e => {
-                if (!topMenuBar.contains(e.target)) closeTopMenus();
-            });
-            document.addEventListener("keydown", e => {
-                if (e.key === "Escape") closeTopMenus();
-            });
-            [ menuFilePanel, menuEditPanel, menuToolBehaviorPanel, menuExportPanel, menuAutosavePanel ].forEach(panel => {
-                panel?.addEventListener("click", e => {
-                    if (e.target.closest("button") && !e.target.closest(".topSubmenuTrigger")) {
-                        closeTopMenus();
-                    }
-                });
-            });
-        }
+        // v different syntax for doing the same thing
         toolSeg.addEventListener("contextmenu", e => {
             const lab = e.target.closest("label[data-tool]");
             if (!lab) return;
@@ -411,6 +296,8 @@
         document.addEventListener("keydown", e => {
             if (e.key === "Escape") closePopup(eraserOptionsPopup);
         });
+
+
         const brushSizeInput = $("brushSize") || $("brushSizeRange");
         const brushSizeNumInput = $("brushSizeNum");
         const eraserSizeInput = $("eraserSize");
@@ -448,34 +335,12 @@
         const autosaveIntervalMinutesInput = document.getElementById("autosaveIntervalMinutesInput");
         const autosaveIntervalConfirmBtn = document.getElementById("autosaveIntervalConfirmBtn");
         const autosaveIntervalCancelBtn = document.getElementById("autosaveIntervalCancelBtn");
-        const topMenuBar = document.getElementById("topMenuBar");
-        const menuFileBtn = document.getElementById("menuFileBtn");
-        const menuFilePanel = document.getElementById("menuFilePanel");
-        const menuEditBtn = document.getElementById("menuEditBtn");
-        const menuEditPanel = document.getElementById("menuEditPanel");
-        const menuToolBehaviorBtn = document.getElementById("menuToolBehaviorBtn");
-        const menuToolBehaviorPanel = document.getElementById("menuToolBehaviorPanel");
-        const menuAutosaveBtn = document.getElementById("menuAutosaveBtn");
-        const menuAutosavePanel = document.getElementById("menuAutosavePanel");
-        const menuExportBtn = document.getElementById("menuExportBtn");
-        const menuExportPanel = document.getElementById("menuExportPanel");
         const stabilizationSelect = $("stabilizationLevel");
         const penControls = $("penControls");
         const pressureSizeToggle = $("pressureSize") || $("usePressureSize");
         const pressureOpacityToggle = $("pressureOpacity") || $("usePressureOpacity");
         const pressureTiltToggle = $("pressureTilt") || $("usePressureTilt");
 
-        
-        function canvasToBlob(canvas, type = "image/png", quality) {
-            return new Promise(resolve => {
-                canvas.toBlob(b => resolve(b), type, quality);
-            });
-        }
-        function _pad2(n) {
-            return String(n).padStart(2, "0");
-        }
-
-        // export func (can be migrated?)
 
         const fitViewBtn = $("fitView");
         const jumpStartBtn = $("jumpStart");
@@ -592,6 +457,8 @@
             LINE: 3,
             SKETCH: 4
         };
+
+        // layer logic
         const MAIN_LAYERS = [ LAYER.FILL, LAYER.COLOR, LAYER.SHADE, LAYER.LINE, LAYER.SKETCH ];
         const DEFAULT_MAIN_LAYER_ORDER = [ LAYER.FILL, LAYER.COLOR, LAYER.SHADE, LAYER.LINE, LAYER.SKETCH ];
         const LAYERS_COUNT = 5;
@@ -665,6 +532,7 @@
         };
         function _ctrlMovePickKeyForLayer(L) {
             if (typeof LAYER !== "undefined" && L === LAYER.FILL) {
+                // what
                 return activeSubColor?.[LAYER.FILL] || fillWhite || "#ffffff";
             }
             return activeSubColor?.[L] ?? (typeof currentColor === "string" ? currentColor : "#000000");
@@ -3302,152 +3170,7 @@
                 });
             } catch {}
         }
-        function mountIslandDock() {
-            const island = document.getElementById("islandDock");
-            if (!island) return;
-            const header = document.getElementById("islandHeader");
-            const tab = document.getElementById("islandTab");
-            const btnCollapse = document.getElementById("islandCollapse");
-            const btnReset = document.getElementById("islandReset");
-            const wheelSlot = document.getElementById("islandWheelSlot");
-            const toolsSlot = document.getElementById("islandToolsSlot");
-            const layersSlot = document.getElementById("islandLayersSlot");
-            const wheelWrap = document.getElementById("hsvWheelWrap");
-            const toolSegEl = document.getElementById("toolSeg");
-            const layerSegEl = document.getElementById("layerSeg");
-            const toolPopup = document.getElementById("toolOptionsPopup");
-            const eraserPopup = document.getElementById("eraserOptionsPopup");
-            if (wheelWrap && wheelSlot && wheelWrap.parentElement !== wheelSlot) wheelSlot.appendChild(wheelWrap);
-            if (toolSegEl && toolsSlot && toolSegEl.parentElement !== toolsSlot) toolsSlot.appendChild(toolSegEl);
-            if (layerSegEl && layersSlot && layerSegEl.parentElement !== layersSlot) layersSlot.appendChild(layerSegEl);
-            if (toolPopup && toolPopup.parentElement !== island) island.appendChild(toolPopup);
-            if (eraserPopup && eraserPopup.parentElement !== island) island.appendChild(eraserPopup);
-            wireIslandIcons(toolSegEl);
-            wireIslandCollapse(island, tab, btnCollapse);
-            wireIslandReset(island, btnReset);
-            wireIslandDrag(island, header);
-            applyIslandSavedPos(island);
-        }
-        const ISLAND_POS_KEY = "celstomp.island.pos";
-        function applyIslandSavedPos(island) {
-            try {
-                const raw = localStorage.getItem(ISLAND_POS_KEY);
-                if (!raw) return;
-                const p = JSON.parse(raw);
-                if (Number.isFinite(p.left)) island.style.left = `${p.left}px`;
-                if (Number.isFinite(p.top)) island.style.top = `${p.top}px`;
-            } catch {}
-        }
-        function saveIslandPos(island) {
-            try {
-                const r = island.getBoundingClientRect();
-                localStorage.setItem(ISLAND_POS_KEY, JSON.stringify({
-                    left: Math.round(r.left),
-                    top: Math.round(r.top)
-                }));
-            } catch {}
-        }
-        function wireIslandDrag(island, handle) {
-            if (!island || !handle || handle._islandDragWired) return;
-            handle._islandDragWired = true;
-            let pid = null;
-            let dragging = false;
-            let startX = 0, startY = 0;
-            let startL = 0, startT = 0;
-            const onMove = e => {
-                if (!dragging || e.pointerId !== pid) return;
-                const nx = startL + (e.clientX - startX);
-                const ny = startT + (e.clientY - startY);
-                const w = island.offsetWidth || 360;
-                const h = island.offsetHeight || 300;
-                const maxL = Math.max(8, window.innerWidth - w - 8);
-                const maxT = Math.max(8, window.innerHeight - h - 8);
-                island.style.left = `${clamp(nx, 8, maxL)}px`;
-                island.style.top = `${clamp(ny, 8, maxT)}px`;
-                e.preventDefault();
-            };
-            const onUp = e => {
-                if (!dragging || e.pointerId !== pid) return;
-                dragging = false;
-                island.classList.remove("dragging");
-                try {
-                    handle.releasePointerCapture(pid);
-                } catch {}
-                pid = null;
-                saveIslandPos(island);
-            };
-            handle.addEventListener("pointerdown", e => {
-                if (e.button !== 0) return;
-                pid = e.pointerId;
-                dragging = true;
-                const r = island.getBoundingClientRect();
-                startL = r.left;
-                startT = r.top;
-                startX = e.clientX;
-                startY = e.clientY;
-                island.classList.add("dragging");
-                try {
-                    handle.setPointerCapture(pid);
-                } catch {}
-                e.preventDefault();
-            }, {
-                passive: false
-            });
-            handle.addEventListener("pointermove", onMove, {
-                passive: false
-            });
-            handle.addEventListener("pointerup", onUp, {
-                passive: false
-            });
-            handle.addEventListener("pointercancel", onUp, {
-                passive: false
-            });
-        }
-        function wireIslandCollapse(island, tab, btnCollapse) {
-            if (!island || island._islandCollapseWired) return;
-            island._islandCollapseWired = true;
-            const setCollapsed = v => {
-                island.classList.toggle("collapsed", !!v);
-                if (tab) tab.setAttribute("aria-hidden", v ? "false" : "true");
-            };
-            btnCollapse?.addEventListener("click", e => {
-                e.preventDefault();
-                setCollapsed(!island.classList.contains("collapsed"));
-            });
-            tab?.addEventListener("click", e => {
-                e.preventDefault();
-                setCollapsed(false);
-            });
-        }
-        function wireIslandReset(island, btnReset) {
-            btnReset?.addEventListener("click", e => {
-                e.preventDefault();
-                try {
-                    localStorage.removeItem(ISLAND_POS_KEY);
-                } catch {}
-                island.style.left = "18px";
-                island.style.top = "calc(var(--header-h) + 28px)";
-            });
-        }
-        function wireIslandIcons(toolSegEl) {
-            if (!toolSegEl || toolSegEl._islandIconsWired) return;
-            toolSegEl._islandIconsWired = true;
-            const map = {
-                "tool-brush": "./icons/tool-brush.svg",
-                "tool-eraser": "./icons/tool-eraser.svg",
-                "tool-filleraser": "./icons/tool-fill-eraser.svg",
-                "tool-fillbrush": "./icons/tool-fill-brush.svg",
-                "tool-lassoFill": "./icons/tool-lasso-fill.svg",
-                "tool-lassoErase": "./icons/tool-lasso-erase.svg"
-            };
-            for (const [inputId, path] of Object.entries(map)) {
-                const lab = toolSegEl.querySelector(`label[for="${inputId}"]`);
-                if (!lab) continue;
-                lab.style.setProperty("--tool-icon", `url("${path}")`);
-                const txt = (lab.textContent || "").trim();
-                if (txt) lab.setAttribute("aria-label", txt);
-            }
-        }
+
         const visBtnByLayer = new Map;
         const layerMoveCtrlsByLayer = new Map;
         function layerIsHidden(L) {
@@ -4941,159 +4664,7 @@
                 } catch {}
             }
         }
-        function wireCanvasPointerDrawingMobileSafe() {
-            const stageEl = typeof stage !== "undefined" && stage || document.getElementById("stage");
-            const canvasEl = typeof drawCanvas !== "undefined" && drawCanvas || document.getElementById("drawCanvas") || document.querySelector("canvas");
-            if (!canvasEl || canvasEl._celstompPointerWired) return;
-            canvasEl._celstompPointerWired = true;
-            const __USE_UNIFIED_CANVAS_INPUT__ = true;
-            if (__USE_UNIFIED_CANVAS_INPUT__) {
-                try {
-                    canvasEl.style.touchAction = "none";
-                } catch {}
-                try {
-                    if (stageEl) stageEl.style.touchAction = "none";
-                } catch {}
-                try {
-                    if (typeof fxCanvas !== "undefined" && fxCanvas) fxCanvas.style.pointerEvents = "none";
-                } catch {}
-                try {
-                    if (typeof boundsCanvas !== "undefined" && boundsCanvas) boundsCanvas.style.pointerEvents = "none";
-                } catch {}
-                try {
-                    window.__CELSTOMP_PTR_DRAW_WIRED__ = true;
-                } catch {}
-                return;
-            }
-            try {
-                if (typeof fxCanvas !== "undefined" && fxCanvas) fxCanvas.style.pointerEvents = "none";
-            } catch {}
-            try {
-                if (typeof boundsCanvas !== "undefined" && boundsCanvas) boundsCanvas.style.pointerEvents = "none";
-            } catch {}
-            try {
-                canvasEl.style.touchAction = "none";
-            } catch {}
-            try {
-                if (stageEl) stageEl.style.touchAction = "none";
-            } catch {}
-            const addTouchPtr = e => {
-                if (e.pointerType !== "touch") return;
-                _touchPointers.set(e.pointerId, {
-                    x: e.clientX,
-                    y: e.clientY
-                });
-                _updateTouchGestureState();
-            };
-            const moveTouchPtr = e => {
-                if (e.pointerType !== "touch") return;
-                if (!_touchPointers.has(e.pointerId)) return;
-                _touchPointers.set(e.pointerId, {
-                    x: e.clientX,
-                    y: e.clientY
-                });
-            };
-            const removeTouchPtr = e => {
-                if (e.pointerType !== "touch") return;
-                _touchPointers.delete(e.pointerId);
-                _updateTouchGestureState();
-            };
-            const hardCancelStroke = () => {
-                try {
-                    cancelLasso?.();
-                } catch {}
-                try {
-                    clearFx?.();
-                } catch {}
-                try {
-                    isDrawing = false;
-                } catch {}
-                try {
-                    isPanning = false;
-                } catch {}
-                try {
-                    lastPt = null;
-                } catch {}
-                try {
-                    stabilizedPt = null;
-                } catch {}
-                try {
-                    trailPoints = [];
-                } catch {}
-                try {
-                    _fillEraseAllLayers = false;
-                } catch {}
-            };
-            const shouldIgnorePointer = e => {
-                if (e.pointerType !== "mouse" && e.isPrimary === false) return true;
-                if (e.pointerType === "mouse") {
-                    if (e.button !== 0 && e.button !== 2) return true;
-                }
-                return false;
-            };
-            canvasEl.addEventListener("pointerdown", e => {
-                if (shouldIgnorePointer(e)) return;
-                addTouchPtr(e);
-                if (_touchGestureActive) {
-                    hardCancelStroke();
-                    e.preventDefault();
-                    return;
-                }
-                try {
-                    canvasEl.setPointerCapture(e.pointerId);
-                } catch {}
-                try {
-                    startStroke(e);
-                } catch (err) {
-                    console.warn("[celstomp] startStroke failed", err);
-                }
-                e.preventDefault();
-            }, {
-                passive: false
-            });
-            canvasEl.addEventListener("pointermove", e => {
-                moveTouchPtr(e);
-                if (_touchGestureActive) {
-                    hardCancelStroke();
-                    e.preventDefault();
-                    return;
-                }
-                try {
-                    if (typeof isPanning !== "undefined" && isPanning) {
-                        continuePan(e);
-                        e.preventDefault();
-                        return;
-                    }
-                    if (typeof isDrawing !== "undefined" && isDrawing) {
-                        continueStroke(e);
-                        e.preventDefault();
-                        return;
-                    }
-                } catch (err) {
-                    console.warn("[celstomp] pointermove failed", err);
-                }
-            }, {
-                passive: false
-            });
-            const finish = e => {
-                removeTouchPtr(e);
-                try {
-                    endStrokeMobileSafe(e);
-                } catch {}
-                try {
-                    canvasEl.releasePointerCapture(e.pointerId);
-                } catch {}
-            };
-            canvasEl.addEventListener("pointerup", finish, {
-                passive: false
-            });
-            canvasEl.addEventListener("pointercancel", finish, {
-                passive: false
-            });
-            canvasEl.addEventListener("lostpointercapture", finish, {
-                passive: false
-            });
-        }
+        
         let lastPt = null;
         let stabilizedPt = null;
         let strokeHex = null;
@@ -6400,13 +5971,6 @@
         }
         const activePointers = new Map;
         let pinch = null;
-        function clientToCanvasLocal(clientX, clientY) {
-            const rect = drawCanvas.getBoundingClientRect();
-            return {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
-        }
         function handlePointerDown(e) {
             if (e.pointerType === "touch" && window.__celstompPinching) return;
             if ((e.ctrlKey || e.metaKey) && e.pointerType !== "touch") {
@@ -6809,33 +6373,7 @@
             } catch {}
         }
         mountIslandSlots();
-        function initMobileNativeZoomGuard() {
-            const stage = document.getElementById("stage");
-            if (!stage || stage._nativeZoomGuard) return;
-            stage._nativeZoomGuard = true;
-            [ "gesturestart", "gesturechange", "gestureend" ].forEach(type => {
-                document.addEventListener(type, e => {
-                    e.preventDefault();
-                }, {
-                    passive: false
-                });
-            });
-            let lastEnd = 0;
-            stage.addEventListener("touchend", e => {
-                const now = Date.now();
-                if (now - lastEnd < 300) e.preventDefault();
-                lastEnd = now;
-            }, {
-                passive: false
-            });
-            if (!window.__CELSTOMP_PTR_DRAW_WIRED__) {
-                try {
-                    wireCanvasPointerDrawingMobileSafe();
-                } catch (e) {
-                    console.warn("[celstomp] pointer wiring failed", e);
-                }
-            }
-        }
+        
         function initIslandMinimizeTab() {
             const island = document.getElementById("floatingIsland");
             const collapseBtn = document.getElementById("islandCollapseBtn");
@@ -9059,7 +8597,10 @@
             handle.addEventListener("pointerup", end);
             handle.addEventListener("pointercancel", end);
         }
+
         wireIslandResize();
+
+        // factored
         wireTopMenus();
         const layerSeg = $("layerSeg");
         layerSeg?.addEventListener("change", () => {
@@ -9332,6 +8873,7 @@
         jumpEndBtn?.addEventListener("click", () => gotoFrame(clipEnd));
         prevFrameBtn?.addEventListener("click", () => gotoFrame(stepBySnap(-1)));
         nextFrameBtn?.addEventListener("click", () => gotoFrame(stepBySnap(1)));
+
         $("playBtn")?.addEventListener("click", startPlayback);
         $("pauseBtn")?.addEventListener("click", pausePlayback);
         $("stopBtn")?.addEventListener("click", stopAndRewind);
@@ -9339,6 +8881,7 @@
         tlPlayBtn?.addEventListener("click", () => $("playBtn")?.click());
         tlPauseBtn?.addEventListener("click", () => $("pauseBtn")?.click());
         tlStopBtn?.addEventListener("click", () => $("stopBtn")?.click());
+
         exportMP4Btn?.addEventListener("click", async () => {
             const mime = pickMP4Mime();
             if (!mime) {
@@ -9843,14 +9386,19 @@
                 passive: true
             });
         }
+
+
         initMobileNativeZoomGuard();
         mountIslandDock();
+
         wireTimelineHeaderControls();
         dockDrag();
         wirePanelToggles();
         wireBrushButtonRightClick();
         wireEraserButtonRightClick();
         wirePointerDrawingOnCanvas(document.getElementById("drawCanvas"));
+
+        // initialization flow (ie: calling predefined funcs)
         buildAndInit();
     });
 })();
