@@ -1,85 +1,6 @@
 (() => {
     "use strict";
-    let _liveColorDialogLock = false;
-    function rafThrottle(fn) {
-        let queued = false;
-        let lastArgs = null;
-        return (...args) => {
-            lastArgs = args;
-            if (queued) return;
-            queued = true;
-            requestAnimationFrame(() => {
-                queued = false;
-                fn(...lastArgs);
-            });
-        };
-    }
-    function openLiveColorDialog({initialHex: initialHex = "#ffffff", onLive: onLive = null, onCommit: onCommit = null, onCancel: onCancel = null} = {}) {
-        if (_liveColorDialogLock) return;
-        _liveColorDialogLock = true;
-        const picker = document.createElement("input");
-        picker.type = "color";
-        picker.value = initialHex || "#ffffff";
-        picker.style.position = "fixed";
-        picker.style.left = "-9999px";
-        picker.style.top = "-9999px";
-        picker.style.opacity = "0";
-        picker.style.pointerEvents = "none";
-        document.body.appendChild(picker);
-        const startHex = picker.value;
-        let committed = false;
-        const liveThrottled = rafThrottle(hex => {
-            try {
-                onLive && onLive(hex);
-            } catch {}
-        });
-        let lastPolled = picker.value;
-        const poll = setInterval(() => {
-            const v = picker.value;
-            if (v && v !== lastPolled) {
-                lastPolled = v;
-                liveThrottled(v);
-            }
-        }, 33);
-        const cleanup = () => {
-            clearInterval(poll);
-            window.removeEventListener("focus", onWinFocus, true);
-            picker.removeEventListener("input", onInp);
-            picker.removeEventListener("change", onChg);
-            picker.remove();
-            _liveColorDialogLock = false;
-        };
-        const onInp = () => liveThrottled(picker.value);
-        const onChg = () => {
-            committed = true;
-            const v = picker.value || startHex;
-            try {
-                (onCommit || onLive) && (onCommit ? onCommit(v) : onLive(v));
-            } catch {}
-            cleanup();
-        };
-        const onWinFocus = () => {
-            setTimeout(() => {
-                if (committed) return;
-                const v = picker.value || startHex;
-                if (v === startHex) {
-                    try {
-                        onCancel && onCancel();
-                    } catch {}
-                } else {
-                    try {
-                        (onCommit || onLive) && (onCommit ? onCommit(v) : onLive(v));
-                    } catch {}
-                }
-                cleanup();
-            }, 0);
-        };
-        picker.addEventListener("input", onInp);
-        picker.addEventListener("change", onChg);
-        window.addEventListener("focus", onWinFocus, true);
-        liveThrottled(startHex);
-        picker.click();
-    }
+
     let _cursorColorPicker = null;
     function ensureCursorColorPicker() {
         if (_cursorColorPicker && document.body.contains(_cursorColorPicker)) return _cursorColorPicker;
@@ -199,6 +120,8 @@
         };
         openColorPickerAtCursor(fakeEvent, initialHex, onPick);
     }
+
+    // shorthand funcs (more of)
     const $ = id => document.getElementById(id);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const sleep = (ms = 0) => new Promise(r => setTimeout(r, ms));
@@ -222,6 +145,9 @@
             return fallback;
         }
     }
+
+    // -- above this point: looks like helper functions
+
     function ready(fn) {
         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn, {
             once: true
@@ -230,14 +156,24 @@
     ready(() => {
         let contentW = 960;
         let contentH = 540;
+        
         const stageEl = $("stage");
+        
+        // back
         const boundsCanvas = $("boundsCanvas");
+        
+        // mid
         const drawCanvas = $("drawCanvas");
+
+        // front
         const fxCanvas = $("fxCanvas");
+
         function ensureChild(parent, el) {
             if (!parent || !el) return;
             if (el.parentElement !== parent) parent.appendChild(el);
         }
+
+        // mostly sanity checks
         ensureChild(stageEl, boundsCanvas);
         ensureChild(stageEl, drawCanvas);
         ensureChild(stageEl, fxCanvas);
@@ -269,23 +205,28 @@
         const toolName = $("toolName");
         const fpsLabel = $("fpsLabel");
         const secLabel = $("secLabel");
+
         const timelineTable = $("timelineTable");
         const timelineScroll = $("timelineScroll");
         const playheadMarker = $("playheadMarker");
         const clipStartMarker = $("clipStartMarker");
         const clipEndMarker = $("clipEndMarker");
+
         const hasTimeline = !!(timelineTable && timelineScroll && playheadMarker && clipStartMarker && clipEndMarker);
+
         const loopToggle = $("loopToggle");
         const snapValue = $("snapValue");
         const bgColorInput = $("bgColor");
         const aaToggle = $("aaToggle");
         const toggleOnionBtn = $("toggleOnion");
         const toggleTransparencyBtn = $("toggleTransparency");
+
         const onionPrevColorInput = $("onionPrevColor");
         const onionNextColorInput = $("onionNextColor");
         const onionAlphaInput = $("onionAlpha");
         const onionAlphaVal = $("onionAlphaVal");
         const playSnappedChk = $("playSnapped");
+
         const dupCelBtn = $("dupCelBtn");
         const tlPrevCelBtn = $("tlPrevCel");
         const tlNextCelBtn = $("tlNextCel");
@@ -293,8 +234,10 @@
         const tlPauseBtn = $("tlPause");
         const tlStopBtn = $("tlStop");
         const tlDupBtn = $("tlDupCel");
+
         const keepOnionPlayingChk = $("keepOnionPlaying");
         const keepTransPlayingChk = $("keepTransPlaying");
+
         const gapPxInput = $("gapPx");
         const autofillToggle = $("autofillToggle");
         const fillCurrentBtn = $("fillCurrent");
@@ -305,16 +248,22 @@
         const addPaletteColorBtn = $("addPaletteColor");
         const clearAllBtn = $("clearAllBtn");
         const paletteBar = $("paletteBar");
+
         const defLInput = $("defL");
         const defCInput = $("defC");
         const defHInput = $("defH");
         const saveOklchDefaultBtn = $("saveOklchDefault");
         const oklchDefaultStatus = $("oklchDefaultStatus");
+
         const hsvWheelWrap = $("hsvWheelWrap");
         const hsvWheelCanvas = $("hsvWheelCanvas");
         const hsvWheelPreview = $("hsvWheelPreview");
+
         const toolSeg = document.getElementById("toolSeg");
         const eraserOptionsPopup = document.getElementById("eraserOptionsPopup");
+
+        // menu helper functions
+
         function openPopupAt(popup, x, y) {
             if (!popup) return;
             popup.style.left = `${x}px`;
@@ -461,12 +410,7 @@
         const eraserVal = $("eraserVal");
         const brushSwatch = $("brushSwatch");
         const brushHexEl = $("brushHex");
-        const infoBtn = $("infoBtn");
-        const infoPanel = $("infoPanel");
         const exportMP4Btn = $("exportMP4");
-        const saveProjBtn = document.getElementById("saveProj");
-        const loadProjBtn = document.getElementById("loadProj");
-        const loadFileInp = document.getElementById("loadFileInp");
         const restoreAutosaveBtn = document.getElementById("restoreAutosave");
         const toggleAutosaveBtn = document.getElementById("toggleAutosaveBtn");
         const autosaveIntervalBtn = document.getElementById("autosaveIntervalBtn");
@@ -510,6 +454,8 @@
         const pressureSizeToggle = $("pressureSize") || $("usePressureSize");
         const pressureOpacityToggle = $("pressureOpacity") || $("usePressureOpacity");
         const pressureTiltToggle = $("pressureTilt") || $("usePressureTilt");
+
+        
         function canvasToBlob(canvas, type = "image/png", quality) {
             return new Promise(resolve => {
                 canvas.toBlob(b => resolve(b), type, quality);
@@ -518,121 +464,9 @@
         function _pad2(n) {
             return String(n).padStart(2, "0");
         }
-        function _timestampSlug(d = new Date) {
-            return d.getFullYear() + _pad2(d.getMonth() + 1) + _pad2(d.getDate()) + "_" + _pad2(d.getHours()) + _pad2(d.getMinutes()) + _pad2(d.getSeconds());
-        }
-        async function exportPngSequenceToFolder({fromFrame: fromFrame, toFrame: toFrame, transparent: transparent = true, prefix: prefix = "celstomp_", makeSubfolder: makeSubfolder = true, folderName: folderName = null, baseDirHandle: baseDirHandle = null, progressEl: progressEl = null} = {}) {
-            const from = Number.isFinite(fromFrame) ? fromFrame : clipStart;
-            const to = Number.isFinite(toFrame) ? toFrame : clipEnd;
-            if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) {
-                alert("Invalid export range.");
-                return;
-            }
-            const outC = document.createElement("canvas");
-            outC.width = contentW;
-            outC.height = contentH;
-            const outCtx = outC.getContext("2d");
-            const total = to - from + 1;
-            const setProg = done => {
-                const el = progressEl || document.getElementById("exportImgSeqBtn") || document.getElementById("exportImgSeq");
-                if (!el) return;
-                const pct = Math.round(done / total * 100);
-                el.textContent = `Exporting… ${pct}%`;
-            };
-            const canFolder = !!window.showDirectoryPicker && !!window.isSecureContext;
-            if (canFolder) {
-                let baseDir = baseDirHandle;
-                if (!baseDir) {
-                    baseDir = await window.showDirectoryPicker({
-                        mode: "readwrite"
-                    });
-                }
-                let dir = baseDir;
-                let finalFolder = "";
-                if (makeSubfolder) {
-                    finalFolder = folderName || `celstomp_pngseq_${_timestampSlug()}`;
-                    dir = await baseDir.getDirectoryHandle(finalFolder, {
-                        create: true
-                    });
-                }
-                for (let f = from; f <= to; f++) {
-                    drawCompositeAt(outCtx, f, !transparent);
-                    const blob = await canvasToBlob(outC, "image/png");
-                    if (!blob) throw new Error("PNG export failed (toBlob returned null).");
-                    const seq = f - from + 1;
-                    const name = `${prefix}${String(seq).padStart(4, "0")}.png`;
-                    const fileHandle = await dir.getFileHandle(name, {
-                        create: true
-                    });
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    const done = f - from + 1;
-                    setProg(done);
-                    if (done % 3 === 0) await sleep(0);
-                }
-                alert(`Exported PNG sequence.\n` + (makeSubfolder ? `Folder: ${finalFolder}\n` : "") + `Frames: ${from + 1}–${to + 1}\n\n` + `Tip: choose your Downloads folder when prompted to save it in Downloads.`);
-                return;
-            }
-            alert((!window.isSecureContext ? "Folder export requires HTTPS (or localhost).\n\n" : "Your browser doesn’t support folder export.\n\n") + "Fallback: downloading many PNGs (your browser may block this).\n" + "For best results, use Opera/Chrome/Edge on an HTTPS site.");
-            for (let f = from; f <= to; f++) {
-                drawCompositeAt(outCtx, f, !transparent);
-                const blob = await canvasToBlob(outC, "image/png");
-                if (!blob) throw new Error("PNG export failed (toBlob returned null).");
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${prefix}${String(f + 1).padStart(4, "0")}.png`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                const done = f - from + 1;
-                setProg(done);
-                await sleep(60);
-            }
-        }
-        function wireImgSeqExportButton() {
-            if (document._imgSeqDelegatedWired) return;
-            document._imgSeqDelegatedWired = true;
-            document.addEventListener("click", async e => {
-                const btn = e.target.closest("#exportImgSeqBtn, #exportImgSeq");
-                if (!btn) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const prevText = btn.textContent;
-                btn.disabled = true;
-                const transparent = !e.shiftKey;
-                let baseDirHandle = null;
-                try {
-                    if (window.showDirectoryPicker && window.isSecureContext) {
-                        baseDirHandle = await window.showDirectoryPicker({
-                            mode: "readwrite"
-                        });
-                    }
-                    await exportPngSequenceToFolder({
-                        fromFrame: clipStart,
-                        toFrame: clipEnd,
-                        transparent: transparent,
-                        prefix: "celstomp_",
-                        makeSubfolder: true,
-                        baseDirHandle: baseDirHandle,
-                        progressEl: btn
-                    });
-                } catch (err) {
-                    if (err && (err.name === "AbortError" || err.name === "NotAllowedError")) {} else {
-                        console.warn("[IMGSEQ] export failed:", err);
-                        alert("IMG SEQ export failed:\n" + (err?.message || String(err)));
-                    }
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = prevText;
-                }
-            }, {
-                capture: true,
-                passive: false
-            });
-        }
+
+        // export func (can be migrated?)
+
         const fitViewBtn = $("fitView");
         const jumpStartBtn = $("jumpStart");
         const jumpEndBtn = $("jumpEnd");
@@ -1648,9 +1482,7 @@
             if (legacy && legacy._hasContent) out.push(legacy);
             return out;
         }
-        function frameLayerHasContent(L, F) {
-            return mainLayerHasContent(L, F);
-        }
+
         function hasCel(F) {
             return MAIN_LAYERS.some(L => mainLayerHasContent(L, F));
         }
@@ -1669,43 +1501,14 @@
             }
         }
         let _paperColorPicker = null;
-        function ensurePaperColorPicker() {
-            if (bgColorInput && bgColorInput.tagName === "INPUT" && bgColorInput.type === "color") {
-                return bgColorInput;
-            }
-            if (_paperColorPicker) return _paperColorPicker;
-            const inp = document.createElement("input");
-            inp.type = "color";
-            inp.style.position = "fixed";
-            inp.style.left = "-9999px";
-            inp.style.top = "-9999px";
-            inp.style.opacity = "0";
-            document.body.appendChild(inp);
-            _paperColorPicker = inp;
-            return inp;
-        }
+
         function setCanvasBgColor(next) {
             canvasBgColor = normalizeToHex(next || canvasBgColor || "#bfbfbf");
             if (bgColorInput) bgColorInput.value = canvasBgColor;
             renderPaperSwatch();
             renderAll();
         }
-        function openPaperColorPicker() {
-            const picker = ensurePaperColorPicker();
-            picker.value = normalizeToHex(canvasBgColor);
-            if (picker === bgColorInput) {
-                return;
-            }
-            const onInput = () => setCanvasBgColor(picker.value);
-            picker.addEventListener("input", onInput);
-            picker.addEventListener("change", () => picker.removeEventListener("input", onInput), {
-                once: true
-            });
-            try {
-                picker.showPicker?.();
-            } catch {}
-            picker.click();
-        }
+
         function renderPaperSwatch() {
             const host = document.getElementById("swatches-paper");
             if (!host) return;
@@ -1749,14 +1552,7 @@
             if (L === LAYER.COLOR) return "bt-sketch";
             return "bt-fill";
         }
-        function layerValueForLayer(L) {
-            if (L === PAPER_LAYER) return "paper";
-            if (L === LAYER.SKETCH) return "sketch";
-            if (L === LAYER.LINE) return "line";
-            if (L === LAYER.SHADE) return "shade";
-            if (L === LAYER.COLOR) return "color";
-            return "fill";
-        }
+
         function layerFromValue(val) {
             if (val === "paper") return PAPER_LAYER;
             if (val === "sketch") return LAYER.SKETCH;
@@ -1766,11 +1562,13 @@
             if (val === "fill") return LAYER.FILL;
             return LAYER.LINE;
         }
+
         function setLayerRadioChecked(L) {
             const id = layerRadioIdForLayer(L);
             const r = document.getElementById(id);
             if (r) r.checked = true;
         }
+
         function commitSwatchOrderFromDOM(host, L) {
             const layer = layers?.[L];
             if (!layer) return;
@@ -2063,119 +1861,7 @@
                 }
             }
         }
-        function getMainLayerById(layerId) {
-            const idx = Number(layerId);
-            if (!Number.isFinite(idx)) return null;
-            return layers && layers[idx] ? layers[idx] : null;
-        }
-        function getOrderArray(layer) {
-            if (!layer) return null;
-            if (Array.isArray(layer.suborder)) return layer.suborder;
-            if (Array.isArray(layer.order)) return layer.order;
-            if (Array.isArray(layer.swatchOrder)) return layer.swatchOrder;
-            return null;
-        }
-        function getSwatch(layer, key) {
-            if (!layer || !key) return null;
-            const raw = String(key);
-            key = swatchColorKey(raw);
-            if (layer.sublayers && typeof layer.sublayers.get === "function") {
-                return layer.sublayers.get(key) || layer.sublayers.get(raw) || null;
-            }
-            if (layer.swatches && typeof layer.swatches === "object" && !Array.isArray(layer.swatches)) {
-                return layer.swatches[key] || null;
-            }
-            if (layer.colors && typeof layer.colors === "object" && !Array.isArray(layer.colors)) {
-                return layer.colors[key] || null;
-            }
-            if (Array.isArray(layer.swatches)) {
-                return layer.swatches.find(s => (s.key ?? s._key ?? s.hex ?? s.id) === key) || null;
-            }
-            return null;
-        }
-        function removeSwatch(layer, key) {
-            key = swatchColorKey(String(key || ""));
-            if (!layer) return null;
-            if (layer.sublayers && typeof layer.sublayers.delete === "function") {
-                const sw = layer.sublayers.get(key) || null;
-                if (!sw) return null;
-                layer.sublayers.delete(key);
-                const ord = getOrderArray(layer);
-                if (ord) {
-                    const i = ord.indexOf(key);
-                    if (i >= 0) ord.splice(i, 1);
-                }
-                return sw;
-            }
-            const sw = layer.sublayers.get(key) || layer.sublayers.get(String(key)) || null;
-            if (layer.swatches && typeof layer.swatches === "object" && !Array.isArray(layer.swatches)) {
-                const sw = layer.swatches[key] || null;
-                if (sw) delete layer.swatches[key];
-                const ord = getOrderArray(layer);
-                if (ord) {
-                    const i = ord.indexOf(key);
-                    if (i >= 0) ord.splice(i, 1);
-                }
-                return sw;
-            }
-            if (layer.colors && typeof layer.colors === "object") {
-                const sw = layer.colors[key] || null;
-                if (sw) delete layer.colors[key];
-                const ord = getOrderArray(layer);
-                if (ord) {
-                    const i = ord.indexOf(key);
-                    if (i >= 0) ord.splice(i, 1);
-                }
-                return sw;
-            }
-            if (Array.isArray(layer.swatches)) {
-                const i = layer.swatches.findIndex(s => (s.key ?? s._key ?? s.hex ?? s.id) === key);
-                if (i >= 0) return layer.swatches.splice(i, 1)[0];
-            }
-            return null;
-        }
-        function insertSwatch(layer, key, sw) {
-            key = swatchColorKey(String(key || ""));
-            if (sw && typeof sw === "object") sw.key = sw._key = sw.hex = key;
-            if (!layer || !sw) return;
-            if (layer.sublayers && typeof layer.sublayers.set === "function") {
-                layer.sublayers.set(key, sw);
-                const ord = getOrderArray(layer);
-                if (ord && !ord.includes(key)) ord.push(key);
-                return;
-            }
-            if (layer.swatches && typeof layer.swatches === "object" && !Array.isArray(layer.swatches)) {
-                layer.swatches[key] = sw;
-                const ord = getOrderArray(layer);
-                if (ord && !ord.includes(key)) ord.push(key);
-                return;
-            }
-            if (layer.colors && typeof layer.colors === "object") {
-                layer.colors[key] = sw;
-                const ord = getOrderArray(layer);
-                if (ord && !ord.includes(key)) ord.push(key);
-                return;
-            }
-            if (Array.isArray(layer.swatches)) {
-                if (sw.key == null) sw.key = key;
-                layer.swatches.push(sw);
-            }
-        }
-        function ensureChildrenArr(parentSwatch) {
-            if (!parentSwatch) return null;
-            if (!Array.isArray(parentSwatch.children)) parentSwatch.children = [];
-            return parentSwatch.children;
-        }
-        function detachFromParentIfAny(layer, sw, key) {
-            if (!layer || !sw) return;
-            const parentKey = sw.parentKey;
-            if (!parentKey) return;
-            const parent = getSwatch(layer, parentKey);
-            if (parent && Array.isArray(parent.children)) {
-                parent.children = parent.children.filter(k => k !== key);
-            }
-            sw.parentKey = null;
-        }
+
         function pairSwatchAcrossLayers(srcL, srcKey, dstL, dstParentKey) {
             if (srcL == null || dstL == null) return false;
             if (!srcKey || !dstParentKey) return false;
@@ -2214,24 +1900,7 @@
             renderLayerSwatches(dstL);
             return true;
         }
-        function readSwatchDragPayload(dt) {
-            if (!dt) return null;
-            let raw = "";
-            try {
-                raw = dt.getData("application/x-celstomp-swatch") || "";
-            } catch {}
-            if (!raw) {
-                try {
-                    raw = dt.getData("text/plain") || "";
-                } catch {}
-            }
-            if (!raw) return null;
-            try {
-                const obj = JSON.parse(raw);
-                if (obj && obj.kind === "celstomp-swatch" && obj.layerId != null && obj.key) return obj;
-            } catch {}
-            return null;
-        }
+
         function getSwatchObj(layer, key) {
             try {
                 return layer?.sublayers?.get(key) ?? null;
@@ -2248,16 +1917,7 @@
             }
             delete sw.parentKey;
         }
-        function insertIntoSuborderAfter(suborder, afterKey, key) {
-            const oldIdx = suborder.indexOf(key);
-            if (oldIdx >= 0) suborder.splice(oldIdx, 1);
-            const i = suborder.indexOf(afterKey);
-            if (i < 0) {
-                suborder.push(key);
-            } else {
-                suborder.splice(i + 1, 0, key);
-            }
-        }
+
         function moveSwatchToLayerUnpaired(srcL, srcKey, dstL) {
             const srcLayer = layers[srcL];
             const dstLayer = layers[dstL];
@@ -2433,9 +2093,6 @@
         }
         let timelineFrameWidth = 30;
         let soloLayer = null;
-        let layerVisibility = {};
-        let layerLocks = {};
-        let layerOpacities = {};
 
         let straightLineMode = false;
         let straightLineStart = null;
@@ -3689,66 +3346,7 @@
             updateVisBtn(LAYER.SKETCH);
             updateLayerMoveButtons();
         }
-        function clearCelAt(L, F) {
-            if (L === PAPER_LAYER) return;
-            const layer = layers[L];
-            if (!layer) return;
-            const order = layer.suborder || [];
-            const map = layer.sublayers || new Map;
-            for (const key of order) {
-                const sub = map.get(key);
-                const c = sub?.frames?.[F];
-                if (c && c._hasContent) {
-                    try {
-                        pushUndo(L, F, key);
-                    } catch {}
-                    const g = c.getContext("2d", {
-                        willReadFrequently: true
-                    });
-                    g.setTransform(1, 0, 0, 1, 0, 0);
-                    g.clearRect(0, 0, contentW, contentH);
-                    c._hasContent = false;
-                }
-            }
-            renderAll();
-            updateTimelineHasContent(F);
-            updateHUD();
-            pruneUnusedSublayers(L);
-        }
-        function clearEntireLayer(L) {
-            if (L === PAPER_LAYER) return;
-            const layer = layers[L];
-            if (!layer) return;
-            const order = layer.suborder || [];
-            const map = layer.sublayers || new Map;
-            for (let f = 0; f < totalFrames; f++) {
-                for (const key of order) {
-                    const sub = map.get(key);
-                    const c = sub?.frames?.[f];
-                    if (c && c._hasContent) {
-                        try {
-                            pushUndo(L, f, key);
-                        } catch {}
-                        const g = c.getContext("2d", {
-                            willReadFrequently: true
-                        });
-                        g.setTransform(1, 0, 0, 1, 0, 0);
-                        g.clearRect(0, 0, contentW, contentH);
-                        c._hasContent = false;
-                    }
-                }
-            }
-            renderAll();
-            if (hasTimeline) buildTimeline();
-            try {
-                renderLayerSwatches();
-            } catch {}
-            try {
-                wireLayerVisButtons();
-            } catch {}
-            updateHUD();
-            pruneUnusedSublayers(L);
-        }
+
         function askClearAllConfirmation() {
             return new Promise(resolve => {
                 if (!clearAllModal || !clearAllModalBackdrop || !clearAllConfirmBtn || !clearAllCancelBtn) {
@@ -3809,6 +3407,7 @@
                 document.addEventListener("keydown", onEsc);
             });
         }
+
         function askGifExportOptions() {
             return new Promise(resolve => {
                 if (!exportGifModal || !exportGifModalBackdrop || !exportGifConfirmBtn || !exportGifCancelBtn) {
@@ -4538,30 +4137,7 @@
                 h: h
             };
         }
-        function combinedInsideMask_LineOnly(F, gapPx) {
-            const w = contentW, h = contentH;
-            const lineCanvases = canvasesWithContentForMainLayerFrame(LAYER.LINE, F);
-            if (!lineCanvases.length) return null;
-            const mask = new Uint8Array(w * h);
-            function addMaskFrom(canvas) {
-                const ctx = canvas.getContext("2d", {
-                    willReadFrequently: true
-                });
-                const im = ctx.getImageData(0, 0, w, h).data;
-                for (let i = 0, p = 0; i < im.length; i += 4, p++) {
-                    if (im[i + 3] > 10) mask[p] = 1;
-                }
-            }
-            for (const c of lineCanvases) addMaskFrom(c);
-            const closed = morphologicalClose(mask, w, h, gapPx);
-            const outside = computeOutsideFromClosed(closed, w, h);
-            return {
-                closed: closed,
-                outside: outside,
-                w: w,
-                h: h
-            };
-        }
+
         function fillKeyForTool(L, toolKind) {
             if (L === PAPER_LAYER) return null;
             const cur = colorToHex(currentColor ?? "#000000");
@@ -6052,39 +5628,7 @@
                 job.running = false;
             })();
         }
-        function pickColorOnce(startHex, onPick) {
-            const inp = document.createElement("input");
-            inp.type = "color";
-            const safe = typeof startHex === "string" && /^#[0-9a-fA-F]{6}$/.test(startHex) ? startHex : "#000000";
-            inp.value = safe;
-            inp.style.position = "fixed";
-            inp.style.left = "-9999px";
-            inp.style.top = "0";
-            inp.style.opacity = "0";
-            inp.style.pointerEvents = "none";
-            document.body.appendChild(inp);
-            let fired = false;
-            const cleanup = () => {
-                if (inp && inp.parentNode) inp.parentNode.removeChild(inp);
-            };
-            const fire = () => {
-                if (fired) return;
-                fired = true;
-                const hex = String(inp.value || "").toLowerCase();
-                cleanup();
-                if (/^#[0-9a-f]{6}$/.test(hex)) onPick(hex);
-            };
-            inp.addEventListener("input", fire, {
-                once: true
-            });
-            inp.addEventListener("change", fire, {
-                once: true
-            });
-            inp.addEventListener("blur", () => setTimeout(cleanup, 0), {
-                once: true
-            });
-            inp.click();
-        }
+
         function pickColorLiveOnce(startHex, {onLive: onLive, onCommit: onCommit, onCancel: onCancel} = {}) {
             const inp = document.createElement("input");
             inp.type = "color";
@@ -6145,69 +5689,7 @@
             } catch {}
             inp.click();
         }
-        function armColorPickerLive(picker, {onLive: onLive, onCommit: onCommit, onCancel: onCancel} = {}) {
-            if (!picker) return;
-            if (picker._liveArmCleanup) {
-                try {
-                    picker._liveArmCleanup();
-                } catch {}
-                picker._liveArmCleanup = null;
-            }
-            const startHex = picker.value;
-            let committed = false;
-            let lastPolled = picker.value;
-            const safeLive = hex => {
-                try {
-                    onLive?.(hex);
-                } catch {}
-            };
-            const safeCommit = hex => {
-                try {
-                    (onCommit || onLive)?.(hex);
-                } catch {}
-            };
-            const safeCancel = () => {
-                try {
-                    onCancel?.();
-                } catch {}
-            };
-            const onInput = e => {
-                const hex = e?.target?.value;
-                if (hex) safeLive(hex);
-            };
-            const onChange = e => {
-                committed = true;
-                const hex = e?.target?.value || picker.value || startHex;
-                safeCommit(hex);
-                cleanup();
-            };
-            const poll = setInterval(() => {
-                const v = picker.value;
-                if (v && v !== lastPolled) {
-                    lastPolled = v;
-                    safeLive(v);
-                }
-            }, 33);
-            const onWinFocus = () => {
-                setTimeout(() => {
-                    if (committed) return;
-                    const v = picker.value || startHex;
-                    if (v === startHex) safeCancel(); else safeCommit(v);
-                    cleanup();
-                }, 0);
-            };
-            function cleanup() {
-                clearInterval(poll);
-                picker.removeEventListener("input", onInput);
-                picker.removeEventListener("change", onChange);
-                window.removeEventListener("focus", onWinFocus, true);
-                picker._liveArmCleanup = null;
-            }
-            picker.addEventListener("input", onInput);
-            picker.addEventListener("change", onChange);
-            window.addEventListener("focus", onWinFocus, true);
-            picker._liveArmCleanup = cleanup;
-        }
+
         function ensureSwatchCtxMenu() {
             if (_swatchCtxMenu) return _swatchCtxMenu;
             const m = document.createElement("div");
@@ -7223,9 +6705,7 @@
                 attributeFilter: [ "class" ]
             });
         }
-        function clearCelFrameAllLayers(F) {
-            clearFrameAllLayers(F);
-        }
+
         function getCelBundle(F) {
             return captureFrameBundle(F);
         }
@@ -7613,332 +7093,13 @@
                 }
             }
         }
-        function pickWebMMime() {
-            let m = "video/webm;codecs=vp9";
-            if (!MediaRecorder.isTypeSupported(m)) m = "video/webm;codecs=vp8";
-            if (!MediaRecorder.isTypeSupported(m)) m = "video/webm";
-            return m;
-        }
+
         function pickMP4Mime() {
             const options = [ "video/mp4;codecs=h264", "video/mp4;codecs=avc1", "video/mp4" ];
             for (const m of options) if (MediaRecorder.isTypeSupported(m)) return m;
             return null;
         }
-        function initImgSeqExportWiring() {
-            return;
-        }
-        async function onExportImgSeqClick(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const oldTxt = exportImgSeqBtn.textContent;
-            exportImgSeqBtn.disabled = true;
-            const transparent = !!e.altKey;
-            const fullRange = !!e.shiftKey;
-            let baseDir;
-            try {
-                baseDir = await pickImgSeqDirectoryHandle();
-            } catch (err) {
-                console.warn("[IMGSEQ] picker cancelled/blocked:", err);
-                exportImgSeqBtn.disabled = false;
-                exportImgSeqBtn.textContent = oldTxt;
-                return;
-            }
-            const tf = typeof totalFrames === "number" && totalFrames > 0 ? totalFrames : fps * seconds;
-            const maxF = Math.max(0, tf - 1);
-            const start = fullRange ? 0 : clamp(clipStart | 0, 0, maxF);
-            const end = fullRange ? maxF : clamp(clipEnd | 0, start, maxF);
-            const count = end - start + 1;
-            const folderName = `celstomp_pngseq_${fps}fps_${String(start + 1).padStart(4, "0")}-${String(end + 1).padStart(4, "0")}_${imgSeqTimestampSlug()}`;
-            let dir = baseDir;
-            try {
-                dir = await baseDir.getDirectoryHandle(folderName, {
-                    create: true
-                });
-            } catch {
-                dir = baseDir;
-            }
-            const cc = document.createElement("canvas");
-            cc.width = contentW;
-            cc.height = contentH;
-            const cctx = cc.getContext("2d", {
-                alpha: true
-            });
-            cctx.imageSmoothingEnabled = !!antiAlias;
-            try {
-                exportImgSeqBtn.textContent = "Exporting… 0%";
-                await withImgSeqExportOverridesAsync(async () => {
-                    for (let f = start; f <= end; f++) {
-                        await drawFrameTo(cctx, f, {
-                            forceHoldOff: true,
-                            transparent: transparent
-                        });
-                        const blob = await imgSeqCanvasToPngBlob(cc);
-                        const fname = `frame_${String(f - start).padStart(4, "0")}.png`;
-                        if (dir && dir.getFileHandle) {
-                            const fh = await dir.getFileHandle(fname, {
-                                create: true
-                            });
-                            const w = await fh.createWritable();
-                            await w.write(blob);
-                            await w.close();
-                        } else {
-                            imgSeqDownloadBlob(blob, fname);
-                            await imgSeqYield(60);
-                        }
-                        const done = f - start + 1;
-                        if (done % 2 === 0) {
-                            exportImgSeqBtn.textContent = `Exporting… ${Math.round(done / count * 100)}%`;
-                            await imgSeqYield(0);
-                        }
-                    }
-                });
-                exportImgSeqBtn.textContent = oldTxt;
-                alert(`PNG sequence exported.\nFolder: ${folderName}\nFrames: ${start + 1}–${end + 1} (${count})`);
-            } catch (err) {
-                console.error(err);
-                exportImgSeqBtn.textContent = oldTxt;
-                alert("IMG SEQ export failed. Check console for details.");
-            } finally {
-                exportImgSeqBtn.disabled = false;
-            }
-        }
-        async function pickImgSeqDirectoryHandle() {
-            if (!window.isSecureContext) throw new Error("IMG SEQ export requires HTTPS (secure context).");
-            if (!window.showDirectoryPicker) throw new Error("Folder picker not supported (use Chrome/Edge/Opera desktop).");
-            try {
-                return await window.showDirectoryPicker({
-                    mode: "readwrite",
-                    startIn: "downloads"
-                });
-            } catch {
-                return await window.showDirectoryPicker({
-                    mode: "readwrite"
-                });
-            }
-        }
-        function imgSeqTimestampSlug(d = new Date) {
-            const p2 = n => String(n).padStart(2, "0");
-            return d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) + "_" + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds());
-        }
-        function imgSeqCanvasToPngBlob(canvas) {
-            return new Promise((res, rej) => {
-                canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob returned null")), "image/png");
-            });
-        }
-        function imgSeqDownloadBlob(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1500);
-        }
-        function imgSeqYield(ms = 0) {
-            return typeof sleep === "function" ? sleep(ms) : new Promise(r => setTimeout(r, ms));
-        }
-        async function withImgSeqExportOverridesAsync(fn) {
-            const prev = {
-                hold: typeof transparencyHoldEnabled !== "undefined" ? transparencyHoldEnabled : undefined,
-                onion: typeof onionEnabled !== "undefined" ? onionEnabled : undefined,
-                paperOpacity: null,
-                paperAcc: null,
-                paperPrev: null
-            };
-            try {
-                if (typeof transparencyHoldEnabled !== "undefined") transparencyHoldEnabled = false;
-                if (typeof onionEnabled !== "undefined") onionEnabled = false;
-                if (typeof getPaperAccessor === "function") {
-                    prev.paperAcc = getPaperAccessor();
-                    if (prev.paperAcc) {
-                        prev.paperPrev = prev.paperAcc.get();
-                        prev.paperAcc.set(false);
-                    }
-                }
-                if (typeof PAPER_LAYER !== "undefined" && Array.isArray(layers) && layers[PAPER_LAYER]) {
-                    prev.paperOpacity = layers[PAPER_LAYER].opacity;
-                    layers[PAPER_LAYER].opacity = 0;
-                }
-                return await fn();
-            } finally {
-                if (typeof transparencyHoldEnabled !== "undefined" && prev.hold !== undefined) transparencyHoldEnabled = prev.hold;
-                if (typeof onionEnabled !== "undefined" && prev.onion !== undefined) onionEnabled = prev.onion;
-                if (typeof PAPER_LAYER !== "undefined" && Array.isArray(layers) && layers[PAPER_LAYER] && prev.paperOpacity !== null) {
-                    layers[PAPER_LAYER].opacity = prev.paperOpacity;
-                }
-                if (prev.paperAcc && prev.paperPrev !== null) {
-                    try {
-                        prev.paperAcc.set(prev.paperPrev);
-                    } catch {}
-                }
-            }
-        }
-        function zpad(n, w) {
-            return String(n).padStart(w, "0");
-        }
-        function getFullAnimRange() {
-            if (typeof animStart !== "undefined" && typeof animEnd !== "undefined") {
-                return {
-                    start: animStart | 0,
-                    end: animEnd | 0
-                };
-            }
-            if (typeof frameCount !== "undefined") {
-                const fc = frameCount | 0;
-                return {
-                    start: 0,
-                    end: Math.max(0, fc - 1)
-                };
-            }
-            if (typeof totalFrames !== "undefined") {
-                const tf = totalFrames | 0;
-                return {
-                    start: 0,
-                    end: Math.max(0, tf - 1)
-                };
-            }
-            if (typeof timelineFrames !== "undefined") {
-                const tf = timelineFrames | 0;
-                return {
-                    start: 0,
-                    end: Math.max(0, tf - 1)
-                };
-            }
-            return {
-                start: clipStart | 0,
-                end: clipEnd | 0
-            };
-        }
-        function canvasToPngBlob(canvas) {
-            return new Promise((res, rej) => {
-                canvas.toBlob(b => b ? res(b) : rej(new Error("PNG export failed (toBlob returned null)")), "image/png");
-            });
-        }
-        async function writeBlobToFile(fileHandle, blob) {
-            const w = await fileHandle.createWritable();
-            await w.write(blob);
-            await w.close();
-        }
-        async function withPaperForcedOffAsync(fn) {
-            const prev = {};
-            if (typeof showPaper !== "undefined") {
-                prev.showPaper = showPaper;
-                showPaper = false;
-            }
-            if (typeof paperEnabled !== "undefined") {
-                prev.paperEnabled = paperEnabled;
-                paperEnabled = false;
-            }
-            if (typeof paperLayerEnabled !== "undefined") {
-                prev.paperLayerEnabled = paperLayerEnabled;
-                paperLayerEnabled = false;
-            }
-            if (typeof state !== "undefined" && state) {
-                if ("showPaper" in state) {
-                    prev.state_showPaper = state.showPaper;
-                    state.showPaper = false;
-                }
-                if ("paperEnabled" in state) {
-                    prev.state_paperEnabled = state.paperEnabled;
-                    state.paperEnabled = false;
-                }
-                if ("paperVisible" in state) {
-                    prev.state_paperVisible = state.paperVisible;
-                    state.paperVisible = false;
-                }
-                if ("paperLayerEnabled" in state) {
-                    prev.state_paperLayerEnabled = state.paperLayerEnabled;
-                    state.paperLayerEnabled = false;
-                }
-            }
-            try {
-                return await fn();
-            } finally {
-                if ("showPaper" in prev && typeof showPaper !== "undefined") showPaper = prev.showPaper;
-                if ("paperEnabled" in prev && typeof paperEnabled !== "undefined") paperEnabled = prev.paperEnabled;
-                if ("paperLayerEnabled" in prev && typeof paperLayerEnabled !== "undefined") paperLayerEnabled = prev.paperLayerEnabled;
-                if (typeof state !== "undefined" && state) {
-                    if ("state_showPaper" in prev) state.showPaper = prev.state_showPaper;
-                    if ("state_paperEnabled" in prev) state.paperEnabled = prev.state_paperEnabled;
-                    if ("state_paperVisible" in prev) state.paperVisible = prev.state_paperVisible;
-                    if ("state_paperLayerEnabled" in prev) state.paperLayerEnabled = prev.state_paperLayerEnabled;
-                }
-            }
-        }
-        async function exportPNGSequence({start: start, end: end, fpsLocal: fpsLocal}) {
-            const cc = document.createElement("canvas");
-            cc.width = contentW;
-            cc.height = contentH;
-            const cctx = cc.getContext("2d");
-            cctx.imageSmoothingEnabled = !!antiAlias;
-            const count = Math.max(0, end - start + 1);
-            const pad = Math.max(4, String(count).length);
-            if (window.showDirectoryPicker) {
-                const dir = await window.showDirectoryPicker({
-                    mode: "readwrite"
-                });
-                const manifest = {
-                    app: "Celstomp",
-                    fps: fpsLocal,
-                    startFrame: start,
-                    endFrame: end,
-                    width: contentW,
-                    height: contentH,
-                    generatedAt: (new Date).toISOString()
-                };
-                const mh = await dir.getFileHandle("manifest.json", {
-                    create: true
-                });
-                await writeBlobToFile(mh, new Blob([ JSON.stringify(manifest, null, 2) ], {
-                    type: "application/json"
-                }));
-                for (let f = start, idx = 0; f <= end; f++, idx++) {
-                    await sleep(0);
-                    await drawFrameTo(cctx, i, {
-                        forceHoldOff: true
-                    });
-                    const blob = await canvasToPngBlob(cc);
-                    const name = `frame_${zpad(idx + 1, pad)}.png`;
-                    const fh = await dir.getFileHandle(name, {
-                        create: true
-                    });
-                    await writeBlobToFile(fh, blob);
-                }
-                return;
-            }
-            for (let f = start, idx = 0; f <= end; f++, idx++) {
-                await sleep(0);
-                await drawFrameTo(cctx, i, {
-                    forceHoldOff: true
-                });
-                const blob = await canvasToPngBlob(cc);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `celstomp_${fpsLocal}fps_frame_${zpad(idx + 1, pad)}.png`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                await sleep(30);
-            }
-        }
-        async function exportPNGSequenceFull() {
-            const {start: start, end: end} = getFullAnimRange();
-            if (typeof withTransparencyHoldForcedOffAsync === "function") {
-                return await withTransparencyHoldForcedOffAsync(async () => await withPaperForcedOffAsync(async () => await exportPNGSequence({
-                    start: start,
-                    end: end,
-                    fpsLocal: fps
-                })));
-            }
-            return await withPaperForcedOffAsync(async () => await exportPNGSequence({
-                start: start,
-                end: end,
-                fpsLocal: fps
-            }));
-        }
+
         async function withTransparencyHoldForcedOffAsync(fn) {
             const prev = !!transparencyHoldEnabled;
             transparencyHoldEnabled = false;
@@ -8082,20 +7243,6 @@
             a.remove();
             URL.revokeObjectURL(url);
         }
-        function padNum(n, w = 4) {
-            const s = String(n);
-            return s.length >= w ? s : "0".repeat(w - s.length) + s;
-        }
-        function downloadBlob(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1500);
-        }
         function canvasToPngBlob(canvas) {
             return new Promise(res => canvas.toBlob(b => res(b), "image/png"));
         }
@@ -8186,76 +7333,6 @@
             clamp: clamp,
             sleep: sleep
         }) || null;
-        async function exportPNGSequenceFull() {
-            const start = clipStart;
-            const end = clipEnd;
-            if (start == null || end == null) {
-                alert("PNG sequence export: clipStart/clipEnd not set.");
-                return;
-            }
-            const folderName = `celstomp_pngseq_${fps}fps_${framesToSF(start).s}-${framesToSF(end).s}`;
-            const cc = document.createElement("canvas");
-            cc.width = contentW;
-            cc.height = contentH;
-            const cctx = cc.getContext("2d");
-            cctx.imageSmoothingEnabled = !!antiAlias;
-            await withExportOverridesAsync(async () => {
-                if (window.showDirectoryPicker) {
-                    const root = await window.showDirectoryPicker({
-                        mode: "readwrite"
-                    });
-                    const dir = await root.getDirectoryHandle(folderName, {
-                        create: true
-                    });
-                    for (let i = start; i <= end; i++) {
-                        await sleep(0);
-                        await drawFrameTo(cctx, i, {
-                            forceHoldOff: true
-                        });
-                        const blob = await canvasToPngBlob(cc);
-                        if (!blob) throw new Error("Failed to encode PNG blob.");
-                        const fname = `frame_${padNum(i - start, 4)}.png`;
-                        const fileHandle = await dir.getFileHandle(fname, {
-                            create: true
-                        });
-                        const writable = await fileHandle.createWritable();
-                        await writable.write(blob);
-                        await writable.close();
-                    }
-                    alert(`Saved PNG sequence to folder: ${folderName}`);
-                    return;
-                }
-                if (typeof JSZip === "undefined") {
-                    for (let i = start; i <= end; i++) {
-                        await sleep(0);
-                        await drawFrameTo(cctx, i, {
-                            forceHoldOff: true
-                        });
-                        const blob = await canvasToPngBlob(cc);
-                        const fname = `${folderName}_frame_${padNum(i - start, 4)}.png`;
-                        downloadBlob(blob, fname);
-                        await sleep(80);
-                    }
-                    alert("Downloaded PNGs individually (your browser doesn’t support folder export, and JSZip not loaded).");
-                    return;
-                }
-                const zip = new JSZip;
-                const folder = zip.folder(folderName);
-                for (let i = start; i <= end; i++) {
-                    await sleep(0);
-                    await drawFrameTo(cctx, i, {
-                        forceHoldOff: true
-                    });
-                    const blob = await canvasToPngBlob(cc);
-                    const ab = await blob.arrayBuffer();
-                    folder.file(`frame_${padNum(i - start, 4)}.png`, ab);
-                }
-                const zipBlob = await zip.generateAsync({
-                    type: "blob"
-                });
-                downloadBlob(zipBlob, `${folderName}.zip`);
-            });
-        }
         function blobToDataURL(blob) {
             return new Promise((resolve, reject) => {
                 const r = new FileReader;
@@ -9568,6 +8645,7 @@
             tLeft?.addEventListener("click", () => setLeftOpen(app.classList.contains("sidebar-collapsed")));
             tRight?.addEventListener("click", () => setRightOpen(app.classList.contains("rightbar-collapsed")));
         }
+        
         function wireIslandResize() {
             const dock = document.querySelector(".islandDock") || document.getElementById("floatingIsland");
             if (!dock || dock._islandResizeWired) return;
@@ -10243,63 +9321,7 @@
         }
         wireFloatingIslandDrag();
         let _islandLayerAutoFit = null;
-        function initIslandTogglePointerFix() {
-            function findToggleBtn() {
-                const dock = document.getElementById("floatingIsland") || document.querySelector(".islandDock");
-                if (!dock) return null;
-                let btn = dock.querySelector("#islandToggleBtn") || dock.querySelector(".islandToggleBtn");
-                if (!btn) {
-                    btn = Array.from(dock.querySelectorAll("button")).find(b => {
-                        const t = (b.textContent || "").trim();
-                        const a = (b.getAttribute("aria-label") || "").toLowerCase();
-                        return t === ">" || t === "‹" || t === "⟩" || a.includes("toggle");
-                    }) || null;
-                }
-                return btn;
-            }
-            function wire(btn) {
-                if (!btn || btn._islandPtrWired) return true;
-                btn._islandPtrWired = true;
-                const doToggle = () => {
-                    if (typeof window.toggleIslandPanel === "function") {
-                        window.toggleIslandPanel();
-                        return;
-                    }
-                    document.body.classList.toggle("island-open");
-                };
-                btn.addEventListener("pointerdown", e => {
-                    if (e.pointerType === "touch") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        doToggle();
-                    }
-                }, {
-                    passive: false
-                });
-                btn.addEventListener("click", e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    doToggle();
-                });
-                return true;
-            }
-            const first = findToggleBtn();
-            if (first) {
-                wire(first);
-                return;
-            }
-            const mo = new MutationObserver(() => {
-                const btn = findToggleBtn();
-                if (btn) {
-                    wire(btn);
-                    mo.disconnect();
-                }
-            });
-            mo.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        }
+        
         function initIslandLayerAutoFit() {
             if (_islandLayerAutoFit) return;
             const st = {
