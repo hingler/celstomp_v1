@@ -35,6 +35,23 @@ layerColorMem[LAYER.FILL] = fillWhite;
 const PAPER_LAYER = -1;
 let mainLayerOrder = DEFAULT_MAIN_LAYER_ORDER.slice();
 
+function getLayerName(layer) {
+    switch (layer) {
+        case LAYER.LINE:
+            return "Line";
+        case LAYER.SHADE:
+            return "Shade";
+        case LAYER.COLOR:
+            return "Color";
+        case LAYER.FILL:
+            return "Fill";
+        case LAYER.PAPER:
+            return "Paper";
+        default:
+            return layer;
+    }
+}
+
 function normalizeMainLayerOrder(order) {
     if (!Array.isArray(order)) return DEFAULT_MAIN_LAYER_ORDER.slice();
     const seen = new Set;

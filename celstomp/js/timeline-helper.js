@@ -8,6 +8,7 @@ let playSnapped = false;
 
 // onion
 let onionEnabled = false;
+let transparencyHoldEnabled = false;
 let onionAlpha = .5;
 let onionPrevTint = "#4080ff";
 let onionNextTint = "#40ff78";
@@ -453,9 +454,9 @@ function deleteSelectedCels() {
   }
   for (let L = 0; L < LAYERS_COUNT; L++) pruneUnusedSublayers(L);
   clearCelSelection();
-  renderAll();
+  queueRenderAll();
   if (hasTimeline) buildTimeline();
-  updateHUD();
+  queueUpdateHud();
 }
 function simulateRoomForDests(dests, dir) {
   const occ = new Uint8Array(totalFrames);
@@ -506,7 +507,7 @@ function moveSelectedCelsTo(startFrame) {
   const pushes = simulateRoomForDests(dests, dir);
   if (!pushes) {
       for (const it of bundles) setCelBundle(it.f, it.b);
-      renderAll();
+      queueRenderAll();
       if (hasTimeline) buildTimeline();
       return;
   }
