@@ -23,6 +23,7 @@
         './js/swatch-handler.js',
         './js/canvas-helper.js',
         './js/history-helper.js',
+        './js/brush-helper.js',
         './js/pointer-events.js',
         './js/menu-wires.js',
         './js/mobile-native-zoom-guard.js',

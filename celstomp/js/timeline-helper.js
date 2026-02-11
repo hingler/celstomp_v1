@@ -6,6 +6,21 @@ let playTimer = null;
 let loopPlayback = true;
 let playSnapped = false;
 
+// onion
+let onionEnabled = false;
+let onionAlpha = .5;
+let onionPrevTint = "#4080ff";
+let onionNextTint = "#40ff78";
+let keepOnionWhilePlaying = false;
+let keepTransWhilePlaying = false;
+let restoreOnionAfterPlay = false;
+let restoreTransAfterPlay = false;
+let prevOnionState = false;
+let prevTransState = false;
+
+
+let snapFrames = 1;
+
 function buildTimeline() {
   totalFrames = fps * seconds;
   for (const layer of layers) {

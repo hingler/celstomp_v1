@@ -8,6 +8,35 @@ let usePressureSize = true;
 let usePressureOpacity = false;
 let usePressureTilt = false;
 
+let brushSize = 3;
+let autofill = false;
+
+function pressure(e) {
+    const pid = Number.isFinite(e?.pointerId) ? e.pointerId : -1;
+    const isPen = e?.pointerType === "pen";
+    const raw = typeof e?.pressure === "number" && e.pressure > 0 ? e.pressure : isPen ? .35 : 1;
+    const prev = pressureCache.has(pid) ? pressureCache.get(pid) : raw;
+    const smoothed = prev + (raw - prev) * pressureSmooth;
+    const out = Math.max(PRESSURE_MIN, Math.min(1, smoothed));
+    pressureCache.set(pid, out);
+    return out;
+}
+function tiltAmount(e) {
+    const pid = Number.isFinite(e?.pointerId) ? e.pointerId : -1;
+    if (e?.pointerType !== "pen") {
+        tiltCache.set(pid, 0);
+        return 0;
+    }
+    const tx = Number.isFinite(e?.tiltX) ? e.tiltX : 0;
+    const ty = Number.isFinite(e?.tiltY) ? e.tiltY : 0;
+    const raw = Math.max(0, Math.min(1, Math.hypot(tx, ty) / 90));
+    const prev = tiltCache.has(pid) ? tiltCache.get(pid) : raw;
+    const smoothed = prev + (raw - prev) * .35;
+    const out = Math.max(0, Math.min(1, smoothed));
+    tiltCache.set(pid, out);
+    return out;
+}
+
 function handlePointerDown(e) {
   if (e.pointerType === "touch" && window.__celstompPinching) return;
   if ((e.ctrlKey || e.metaKey) && e.pointerType !== "touch") {
@@ -293,6 +322,12 @@ function startStroke(e) {
   queueRenderAll();
   updateTimelineHasContent(currentFrame);
 }
+
+function markFrameHasContent(L, F, colorStr) {
+    const c = getFrameCanvas(L, F, colorStr);
+    if (c) c._hasContent = true;
+}
+
 function continueStroke(e) {
   if (!isDrawing) return;
   const pos = getCanvasPointer(e);
