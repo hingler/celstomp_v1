@@ -822,3 +822,188 @@ function nearestNextCelIndex(F) {
   for (let i = F + 1; i < totalFrames; i++) if (hasCel(i)) return i;
   return -1;
 }
+
+///
+// TIMELINNE INIT FUNCTIONALITY
+///
+
+function initTimelineOnionContextMenu() {
+  const onionBtn = $("tlOnion");
+  const menu = $("onionCtxMenu");
+  const block = $("onionOptionsBlock");
+  if (!onionBtn || !menu || !block) return;
+  if (menu._wired) return;
+  menu._wired = true;
+  const homeParent = block.parentNode;
+  const homeNext = block.nextSibling;
+  function placeMenu(x, y) {
+      menu.style.left = x + "px";
+      menu.style.top = y + "px";
+      const r = menu.getBoundingClientRect();
+      const pad = 8;
+      let nx = x, ny = y;
+      if (r.right > window.innerWidth - pad) nx -= r.right - (window.innerWidth - pad);
+      if (r.bottom > window.innerHeight - pad) ny -= r.bottom - (window.innerHeight - pad);
+      if (nx < pad) nx = pad;
+      if (ny < pad) ny = pad;
+      menu.style.left = nx + "px";
+      menu.style.top = ny + "px";
+  }
+  function openAt(x, y) {
+      menu.innerHTML = "";
+      menu.appendChild(block);
+      menu.classList.add("open");
+      menu.setAttribute("aria-hidden", "false");
+      placeMenu(x, y);
+  }
+  function close() {
+      if (!menu.classList.contains("open")) return;
+      if (homeParent) {
+          if (homeNext && homeNext.parentNode === homeParent) homeParent.insertBefore(block, homeNext); else homeParent.appendChild(block);
+      }
+      menu.classList.remove("open");
+      menu.setAttribute("aria-hidden", "true");
+      menu.style.left = "";
+      menu.style.top = "";
+  }
+  onionBtn.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      openAt(e.clientX, e.clientY);
+  }, {
+      passive: false
+  });
+  window.addEventListener("pointerdown", e => {
+      if (!menu.classList.contains("open")) return;
+      if (e.target === menu || menu.contains(e.target)) return;
+      close();
+  }, {
+      passive: true
+  });
+  window.addEventListener("keydown", e => {
+      if (e.key === "Escape") close();
+  });
+  window.addEventListener("resize", close, {
+      passive: true
+  });
+  window.addEventListener("scroll", close, {
+      passive: true,
+      capture: true
+  });
+}
+
+function initMobileTimelineScrub() {
+  const row = $("tlPlayheadRow") || document.querySelector(".playheadRow") || document.querySelector("[data-playhead-row]");
+  if (!row || row._mobileScrubWired) return;
+  row._mobileScrubWired = true;
+  function findScroller(el) {
+      const cand = el.closest("#timelineViewport") || el.closest("#timelineScroll") || el.closest(".timelineViewport") || el.closest(".timelineScroll") || el.closest(".tlViewport") || el.closest(".tlScroll");
+      if (cand) return cand;
+      let p = el.parentElement;
+      while (p && p !== document.body) {
+          const cs = getComputedStyle(p);
+          if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && p.scrollWidth > p.clientWidth) return p;
+          p = p.parentElement;
+      }
+      return null;
+  }
+  const scroller = findScroller(row);
+  function getFrameW() {
+      const v = parseFloat(getComputedStyle(row).getPropertyValue("--tl-frame-w"));
+      if (Number.isFinite(v) && v > 0) return v;
+      const cell = row.querySelector(".frameCell, .tlCell, [data-frame-cell]");
+      if (cell) {
+          const r = cell.getBoundingClientRect();
+          if (r.width > 0) return r.width;
+      }
+      return 16;
+  }
+  function applyScrubFrame(frame) {
+      frame = Math.max(0, frame | 0);
+      if (typeof window.gotoFrame === "function") {
+          window.gotoFrame(frame);
+          return;
+      }
+      if (window.state && typeof window.state === "object") {
+          if ("frame" in window.state) window.state.frame = frame; else if ("playhead" in window.state) window.state.playhead = frame; else if ("curFrame" in window.state) window.state.curFrame = frame;
+      }
+      if (typeof window.renderAll === "function") window.renderAll(); else if (typeof window.renderTimeline === "function") window.renderTimeline();
+  }
+  function scrubAtClientX(clientX) {
+      const r = row.getBoundingClientRect();
+      const frameW = getFrameW();
+      let x = clientX - r.left;
+      const scrollX = scroller ? scroller.scrollLeft : 0;
+      const xInContent = x + scrollX;
+      const frame = Math.floor(xInContent / frameW);
+      applyScrubFrame(frame);
+  }
+  let active = false;
+  let activeId = -1;
+  row.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "touch") return;
+      if (!e.isPrimary) return;
+      active = true;
+      activeId = e.pointerId;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+          row.setPointerCapture(activeId);
+      } catch {}
+      scrubAtClientX(e.clientX);
+  }, {
+      passive: false
+  });
+  row.addEventListener("pointermove", e => {
+      if (!active || e.pointerId !== activeId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      scrubAtClientX(e.clientX);
+  }, {
+      passive: false
+  });
+  function end(e) {
+      if (!active || e.pointerId !== activeId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      active = false;
+      activeId = -1;
+  }
+  row.addEventListener("pointerup", end, {
+      passive: false
+  });
+  row.addEventListener("pointercancel", end, {
+      passive: false
+  });
+}
+
+function initTimelineToggleBridge() {
+  const tlOnion = $("tlOnion");
+  const btnOnion = $("toggleOnion");
+  if (!tlOnion) return;
+  const btnIsOn = btn => {
+      if (!btn) return null;
+      const t = (btn.textContent || "").toLowerCase();
+      if (t.includes("off")) return false;
+      if (t.includes("on")) return true;
+      return null;
+  };
+  function syncOnionFromButton() {
+      const s = btnIsOn(btnOnion);
+      if (s === null) return;
+      tlOnion.checked = s;
+  }
+  tlOnion.addEventListener("change", () => {
+      if (!btnOnion) return;
+      const cur = btnIsOn(btnOnion);
+      const want = !!tlOnion.checked;
+      if (cur === null || cur !== want) btnOnion.click();
+      syncOnionFromButton();
+  });
+  if (btnOnion) {
+      btnOnion.addEventListener("click", () => {
+          setTimeout(syncOnionFromButton, 0);
+      });
+      syncOnionFromButton();
+  }
+}

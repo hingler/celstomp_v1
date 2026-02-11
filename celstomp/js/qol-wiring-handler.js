@@ -6,6 +6,8 @@ let straightLineStart = null;
 let temporaryEyedropper = false;
 let previousTool = null;
 
+// keyboard shortcuts, some other stuff tagged "QoL"
+
 function wireQoLFeatures() {
   if (document._celstompQoLWired) return;
   document._celstompQoLWired = true;
@@ -404,4 +406,220 @@ function wireKeyboardShortcuts() {
   }, {
       passive: false
   });
+}
+
+// event handler for key pressed in window
+function onWindowKeyDown(e) {
+    const ctrl = e.ctrlKey || e.metaKey;
+    {
+        const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+        const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target && e.target.isContentEditable;
+        if (!typing && !ctrl && !e.altKey) {
+            const k = (e.key || "").toLowerCase();
+            if (k === "e") {
+                e.preventDefault();
+                gotoFrame(stepBySnap(-1));
+                return;
+            }
+            if (k === "r") {
+                e.preventDefault();
+                gotoFrame(stepBySnap(1));
+                return;
+            }
+            if (k === "q") {
+                e.preventDefault();
+                gotoPrevCel();
+                return;
+            }
+            if (k === "w") {
+                e.preventDefault();
+                gotoNextCel();
+                return;
+            }
+        }
+    }
+    {
+        const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+        const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target && e.target.isContentEditable;
+        if (!typing && !ctrl && !e.altKey) {
+            const isDigit = n => e.code === `Digit${n}` || e.code === `Numpad${n}` || e.key === String(n);
+            const pickTool = ({id: id, value: value, altIds: altIds = []}) => {
+                let inp = id && $(id) || null;
+                if (!inp) {
+                    for (const a of altIds) {
+                        inp = $(a);
+                        if (inp) break;
+                    }
+                }
+                if (!inp && value) {
+                    inp = document.querySelector(`input[name="tool"][value="${value}"]`);
+                }
+                if (!inp) return false;
+                inp.checked = true;
+                inp.dispatchEvent(new Event("change", {
+                    bubbles: true
+                }));
+                return true;
+            };
+            if (!e.shiftKey) {
+                if (isDigit(1)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-brush",
+                        value: "brush"
+                    });
+                }
+                if (isDigit(2)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-eraser",
+                        value: "eraser"
+                    });
+                }
+                if (isDigit(3)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-fillbrush",
+                        value: "fill-brush"
+                    });
+                }
+                if (isDigit(4)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-filleraser",
+                        value: "fill-eraser"
+                    });
+                }
+                if (isDigit(5)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-lassoFill",
+                        value: "lasso-fill"
+                    });
+                }
+                if (isDigit(6)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-lassoErase",
+                        altIds: [ "tool-lassoerase", "tool-lasso-erase" ],
+                        value: "lasso-erase"
+                    });
+                }
+                if (isDigit(7)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-rectSelect",
+                        value: "rect-select"
+                    });
+                }
+                if (isDigit(8)) {
+                    e.preventDefault();
+                    pickTool({
+                        id: "tool-eyedropper",
+                        value: "eyedropper"
+                    });
+                }
+            }
+        }
+    }
+    if (e.key === "Escape") {
+        if (tool === "lasso-fill" && lassoActive) {
+            e.preventDefault();
+            cancelLasso();
+            isDrawing = false;
+            lastPt = null;
+            return;
+        }
+        if (rectSelection.active) {
+            e.preventDefault();
+            clearRectSelection();
+            return;
+        }
+    }
+    if ((e.key === "Delete" || e.key === "Backspace") && rectSelection.active) {
+        const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+            const c = getFrameCanvas(rectSelection.L, rectSelection.F, rectSelection.key);
+            const ctx = c.getContext("2d", {
+                willReadFrequently: true
+            });
+            if (ctx) {
+                beginGlobalHistoryStep(rectSelection.L, rectSelection.F, rectSelection.key);
+                ctx.clearRect(rectSelection.x, rectSelection.y, rectSelection.w, rectSelection.h);
+                markGlobalHistoryDirty();
+                recomputeHasContent(rectSelection.L, rectSelection.F, rectSelection.key);
+                commitGlobalHistoryStep();
+                updateTimelineHasContent(rectSelection.F);
+                renderAll();
+            }
+            clearRectSelection();
+            e.preventDefault();
+            return;
+        }
+    }
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedCels.size) {
+        const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+            e.preventDefault();
+            deleteSelectedCels();
+            return;
+        }
+    }
+    if ((e.key === "Delete" || e.key === "Backspace") && !selectedCels.size) {
+        const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+            const did = deleteActiveColorAtCurrentFrame();
+            if (did) {
+                e.preventDefault();
+                return;
+            }
+        }
+    }
+    if (ctrl && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+    } else if (ctrl && e.key.toLowerCase() === "z" && e.shiftKey) {
+        e.preventDefault();
+        redo();
+    } else if (e.key === " ") {
+        e.preventDefault();
+        if (isPlaying) pausePlayback(); else startPlayback();
+    } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        gotoNextCel();
+    } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        gotoPrevCel();
+    } else if (e.key === "ArrowLeft") {
+        gotoFrame(stepBySnap(-1));
+    } else if (e.key === "ArrowRight") {
+        gotoFrame(stepBySnap(1));
+    }
+}
+
+function deleteActiveColorAtCurrentFrame() {
+    if (activeLayer === PAPER_LAYER) return false;
+    const L = activeLayer;
+    const layer = layers[L];
+    if (!layer?.sublayers || !Array.isArray(layer.suborder)) return false;
+    const key = resolveKeyFor(L, activeSubColor?.[L] ?? currentColor);
+    if (!key) return false;
+    const sub = layer.sublayers.get(key);
+    const c = sub?.frames?.[currentFrame];
+    if (!c) return false;
+    try {
+        pushUndo(L, currentFrame, key);
+    } catch {}
+    try {
+        const ctx = c.getContext("2d", {
+            willReadFrequently: true
+        });
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, contentW, contentH);
+    } catch {}
+    sub.frames[currentFrame] = null;
+    queueRenderAll();
+    updateTimelineHasContent(currentFrame);
+    pruneUnusedSublayers(L);
+    return true;
 }

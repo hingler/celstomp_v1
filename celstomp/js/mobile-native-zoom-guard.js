@@ -94,7 +94,7 @@ function _wireCanvasPointerDrawingMobileSafe() {
           cancelLasso?.();
       } catch {}
       try {
-          onClearFx?.();
+        queueClearFx?.();
       } catch {}
       try {
           isDrawing = false;

@@ -36,22 +36,6 @@ function canvasesWithContentForMainLayerFrame(L, F) {
   return out;
 }
 
-
-function drawExactCel(ctx, idx) {
-  for (const L of mainLayerOrder) {
-      const layer = layers[L];
-      if (!layer) continue;
-      const op = layer.opacity ?? 1;
-      if (op <= 0) continue;
-      const srcCanvases = canvasesWithContentForMainLayerFrame(L, idx);
-      if (!srcCanvases.length) continue;
-      ctx.save();
-      ctx.globalAlpha *= op;
-      for (const off of srcCanvases) ctx.drawImage(off, 0, 0);
-      ctx.restore();
-  }
-}
-
 async function drawFrameTo(ctx, i, opts = {}) {
   const forceHoldOff = !!opts.forceHoldOff;
   const transparent = !!opts.transparent;
@@ -568,6 +552,8 @@ async function saveProject() {
 function loadProject(file, options = {}) {
   const fr = new FileReader;
   fr.onerror = () => alert("Failed to read file.");
+
+  // lame as hell
   fr.onload = () => {
       (async () => {
           const data = JSON.parse(fr.result);
@@ -830,9 +816,6 @@ function loadProject(file, options = {}) {
               if (typeof k === "string" && k) currentColor = k;
           }
           try {
-              applyOklchDefaultToPicker?.();
-          } catch {}
-          try {
               setColorSwatch?.();
           } catch {}
           try {
@@ -989,4 +972,157 @@ function askAutosaveIntervalOptions() {
       autosaveIntervalModalBackdrop.addEventListener("click", onCancel);
       document.addEventListener("keydown", onEsc);
   });
+}
+
+// "clear all" migrated to export/import flow for now
+function askClearAllConfirmation() {
+    return new Promise(resolve => {
+        if (!clearAllModal || !clearAllModalBackdrop || !clearAllConfirmBtn || !clearAllCancelBtn) {
+            resolve(window.confirm("Clear ALL frames and layers?\n\nThis will reset undo history and cannot be undone."));
+            return;
+        }
+        clearAllModal.hidden = false;
+        clearAllModalBackdrop.hidden = false;
+        const cleanup = ok => {
+            clearAllModal.hidden = true;
+            clearAllModalBackdrop.hidden = true;
+            clearAllConfirmBtn.removeEventListener("click", onConfirm);
+            clearAllCancelBtn.removeEventListener("click", onCancel);
+            clearAllModalBackdrop.removeEventListener("click", onCancel);
+            document.removeEventListener("keydown", onEsc);
+            resolve(ok);
+        };
+        const onConfirm = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onEsc = e => {
+            if (e.key === "Escape") cleanup(false);
+        };
+        clearAllConfirmBtn.addEventListener("click", onConfirm);
+        clearAllCancelBtn.addEventListener("click", onCancel);
+        clearAllModalBackdrop.addEventListener("click", onCancel);
+        document.addEventListener("keydown", onEsc);
+    });
+}
+
+async function clearAllProjectState() {
+    const ok = await askClearAllConfirmation();
+    if (!ok) return;
+    try {
+        stopPlayback?.();
+    } catch {}
+    try {
+        clearFx?.();
+    } catch {}
+    try {
+        clearRectSelection?.();
+    } catch {}
+    try {
+        clearCelSelection?.();
+    } catch {}
+    try {
+        clearGhostTargets?.();
+    } catch {}
+    try {
+        cancelLasso?.();
+    } catch {}
+    for (let f = 0; f < totalFrames; f++) {
+        clearFrameAllLayers(f);
+    }
+    for (let L = 0; L < LAYERS_COUNT; L++) {
+        try {
+            pruneUnusedSublayers(L);
+        } catch {}
+    }
+    currentFrame = 0;
+    
+    globalHistory.undo.length = 0;
+    globalHistory.redo.length = 0;
+    historyMap.clear();
+    _pendingGlobalStep = null;
+    _globalStepDirty = false;
+    if (hasTimeline) buildTimeline();
+    try {
+        gotoFrame?.(0);
+    } catch {}
+    try {
+        renderAll?.();
+    } catch {}
+    try {
+        updateHUD?.();
+    } catch {}
+    try {
+        markProjectDirty?.();
+    } catch {}
+}
+
+/// MISC WIRING CODE
+
+function handleExportFunctionWiring() {
+    $("exportMP4")?.addEventListener("click", async () => {
+        const mime = pickMP4Mime();
+        if (!mime) {
+            alert("MP4 export is not supported in this browser. Try Safari or export WebM.");
+            return;
+        }
+        await exportClip(mime, "mp4");
+    });
+    
+    const exportImgSeqBtn = $("exportImgSeqBtn") || $("exportImgSeq");
+    exportImgSeqBtn?.addEventListener("click", async e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!imgSeqExporter?.handleClick) {
+            alert("IMG sequence exporter is unavailable.");
+            return;
+        }
+        const options = await askImgSeqExportOptions();
+        if (!options) return;
+        await imgSeqExporter.handleClick({
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            altKey: !!options.transparent,
+            shiftKey: false
+        }, exportImgSeqBtn);
+    });
+    
+    const exportGIFBtn = $("exportGIFBtn");
+    exportGIFBtn?.addEventListener("click", async e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const options = await askGifExportOptions();
+        if (!options) return;
+        const oldTxt = exportGIFBtn.textContent;
+        exportGIFBtn.disabled = true;
+        exportGIFBtn.textContent = "Exporting...";
+        try {
+            await exportGif(options);
+        } catch (err) {
+            alert("GIF export failed: " + (err?.message || err));
+        } finally {
+            exportGIFBtn.disabled = false;
+            exportGIFBtn.textContent = oldTxt;
+        }
+    });
+    
+    $("toggleAutosaveBtn")?.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        autosaveEnabled = !autosaveEnabled;
+        autosaveController?.setEnabled?.(autosaveEnabled);
+        if (autosaveEnabled) {
+            autosaveController?.markClean?.("Autosave On");
+        }
+        syncAutosaveUiState();
+        updateRestoreAutosaveButton();
+    });
+    
+    $("autosaveIntervalBtn")?.addEventListener("click", async e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const minutes = await askAutosaveIntervalOptions();
+        if (!minutes) return;
+        autosaveIntervalMinutes = clamp(Number(minutes) || autosaveIntervalMinutes || 1, 1, 120);
+        autosaveController?.setIntervalMs?.(autosaveIntervalMinutes * 60000);
+        syncAutosaveUiState();
+    });
 }

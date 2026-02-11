@@ -137,6 +137,12 @@ function notePenDetected(e) {
   penDetected = true;
   setPenControlsVisible(true);
 }
+
+function setPenControlsVisible(visible) {
+    if (!$("penControls")) return;
+    $("penControls").hidden = !visible;
+}
+
 function shouldStabilizeTool(name) {
   return name === "brush" || name === "eraser" || name === "fill-brush" || name === "fill-eraser";
 }
@@ -166,6 +172,44 @@ let lastPt = null;
 let stabilizedPt = null;
 let strokeHex = null;
 let _fillEraseAllLayers = false;
+
+function drawExactCel(ctx, idx) {
+    for (const L of mainLayerOrder) {
+        const layer = layers[L];
+        if (!layer) continue;
+        const op = layer.opacity ?? 1;
+        if (op <= 0) continue;
+        const srcCanvases = canvasesWithContentForMainLayerFrame(L, idx);
+        if (!srcCanvases.length) continue;
+        ctx.save();
+        ctx.globalAlpha *= op;
+        for (const off of srcCanvases) ctx.drawImage(off, 0, 0);
+        ctx.restore();
+    }
+}
+
+function drawCompositeAt(ctx, F, withBg = true, holdPrevWhenEmpty = true, holdPrevAlpha = 1) {
+    ctx.save();
+    ctx.clearRect(0, 0, contentW, contentH);
+    ctx.imageSmoothingEnabled = !!antiAlias;
+    if (withBg) {
+        ctx.fillStyle = canvasBgColor;
+        ctx.fillRect(0, 0, contentW, contentH);
+    }
+    if (hasCel(F)) {
+        drawExactCel(ctx, F);
+    } else if (holdPrevWhenEmpty) {
+        const prevIdx = nearestPrevCelIndex(F);
+        if (prevIdx >= 0) {
+            const a = Math.max(0, Math.min(1, Number(holdPrevAlpha ?? 1)));
+            ctx.save();
+            ctx.globalAlpha *= a;
+            drawExactCel(ctx, prevIdx);
+            ctx.restore();
+        }
+    }
+    ctx.restore();
+}
 
 function getPixelHexAtContentPoint(cx, cy) {
     const x = Math.max(0, Math.min(contentW - 1, Math.round(cx)));
@@ -451,7 +495,7 @@ function endStroke() {
   if (tool === "fill-brush") {
       const seeds = trailPoints.length ? trailPoints : lastPt ? [ lastPt ] : [];
       if (seeds.length) applyFillRegionsFromSeeds(currentFrame, seeds, activeLayer);
-      onClearFx();
+      queueClearFx();
       trailPoints = [];
       lastPt = null;
       stabilizedPt = null;
@@ -459,7 +503,7 @@ function endStroke() {
   }
   if (tool === "fill-eraser") {
       if (activeLayer === PAPER_LAYER) {
-          onClearFx();
+        queueClearFx();
           trailPoints = [];
           lastPt = null;
           stabilizedPt = null;
@@ -467,7 +511,7 @@ function endStroke() {
       }
       const strokePts = trailPoints.length ? trailPoints : lastPt ? [ lastPt ] : [];
       if (strokePts.length) eraseFillRegionsFromSeeds(activeLayer, currentFrame, strokePts);
-      onClearFx();
+      queueClearFx();
       trailPoints = [];
       lastPt = null;
       stabilizedPt = null;
@@ -490,7 +534,7 @@ function endStrokeMobileSafe(e) {
           cancelLasso?.();
       } catch {}
       try {
-          onClearFx?.();
+        queueClearFx?.();
       } catch {}
       try {
           isDrawing = false;
@@ -563,7 +607,7 @@ function endStrokeMobileSafe(e) {
           }
       }
       try {
-          onClearFx();
+        queueClearFx();
       } catch {}
       trailPoints = [];
       lastPt = null;
@@ -591,7 +635,7 @@ function endStrokeMobileSafe(e) {
       _fillEraseAllLayers = false;
   } catch {}
   try {
-      onClearFx?.();
+    queueClearFx?.();
   } catch {}
   try {
       endGlobalHistoryStep?.();
@@ -631,7 +675,7 @@ function continuePan(e) {
   queueUpdateHud();
   updatePlayheadMarker();
   updateClipMarkers();
-  onClearFx();
+  queueClearFx();
 }
 function endPan() {
   isPanning = false;

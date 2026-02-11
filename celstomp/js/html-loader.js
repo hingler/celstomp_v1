@@ -19,20 +19,29 @@
         './js/color-manager.js',
         './js/zoom-helper.js',
         './js/color-wheel.js',
+        './js/island-helper.js',
         './js/layer-manager.js',
         './js/timeline-helper.js',
+
+        
         './js/swatch-handler.js',
         './js/history-helper.js',
         './js/brush-helper.js',
         './js/canvas-helper.js',
+        './js/eraser-manager.js',
         './js/lasso-helper.js',
+        './js/export-helper.js',
         './js/pointer-events.js',
+
+        './js/pointer-wire.js',
         './js/menu-wires.js',
+        './js/qol-wiring-handler.js',
+        
+        './js/dock-helper.js',
         './js/mobile-native-zoom-guard.js',
         './js/mount-island-dock.js',
         './js/ui-components.js',
 
-        './js/export-helper.js',
         './js/omggif.js',
         './celstomp-imgseq.js',
         './celstomp-autosave.js',
