@@ -26,6 +26,7 @@ function nowCSSVarPx(name, fallback) {
 let tool = "brush";
 
 // renderhud/renderall hooks
+// allows other components to call on app code to refresh display
 
 const listeners_all = [];
 const listeners_hud = [];

@@ -2,9 +2,103 @@ let _wheelGeom = null;
 let _wheelRingImg = null;
 let _dragMode = null;
 
+let hsvPick = {
+    h: 0,
+    s: 1,
+    v: 1
+  };
+
+function wheelLocalFromEvent(e) {
+    const hsvWheelCanvas = $("hsvWheelCanvas");
+    const rect = hsvWheelCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (hsvWheelCanvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (hsvWheelCanvas.height / rect.height);
+    return {
+        x: x,
+        y: y
+    };
+}
+function hitTestWheel(x, y) {
+    const g = _wheelGeom || computeWheelGeom();
+    if (!g) return null;
+    const dx = x - g.R;
+    const dy = y - g.R;
+    const dist = Math.hypot(dx, dy);
+    const inRing = dist >= g.ringInner && dist <= g.ringOuter;
+    const inSquare = x >= g.sqLeft && x <= g.sqLeft + g.sqSize && y >= g.sqTop && y <= g.sqTop + g.sqSize;
+    if (inSquare) return "sv";
+    if (inRing) return "hue";
+    return null;
+}
+function updateFromHuePoint(x, y) {
+    const g = _wheelGeom;
+    const ang = Math.atan2(y - g.R, x - g.R);
+    const h = (ang * 180 / Math.PI + 90 + 360) % 360;
+    hsvPick.h = h;
+    const rgb = hsvToRgb(hsvPick.h, hsvPick.s, hsvPick.v);
+    currentColor = rgbToHex(rgb.r, rgb.g, rgb.b);
+    setColorSwatch();
+    setHSVPreviewBox();
+    rememberLayerColorSafe();
+    drawHSVWheel();
+}
+function updateFromSVPoint(x, y) {
+    const g = _wheelGeom;
+    const sx = clamp((x - g.sqLeft) / g.sqSize, 0, 1);
+    const vy = clamp(1 - (y - g.sqTop) / g.sqSize, 0, 1);
+    hsvPick.s = sx;
+    hsvPick.v = vy;
+    const rgb = hsvToRgb(hsvPick.h, hsvPick.s, hsvPick.v);
+    currentColor = rgbToHex(rgb.r, rgb.g, rgb.b);
+    setColorSwatch();
+    setHSVPreviewBox();
+    rememberLayerColorSafe();
+    drawHSVWheel();
+}
+function initHSVWheelPicker() {
+    const hsvWheelCanvas = $("hsvWheelCanvas");
+    const hsvWheelWrap = $("hsvWheelWrap");
+    if (!hsvWheelCanvas || !hsvWheelWrap) return;
+    const rgb = hexToRgb(currentColor || "#000000");
+    hsvPick = rgbToHsv(rgb.r, rgb.g, rgb.b);
+    drawHSVWheel();
+    let dragging = false;
+    hsvWheelCanvas.addEventListener("pointerdown", e => {
+        const p = wheelLocalFromEvent(e);
+        _dragMode = hitTestWheel(p.x, p.y);
+        if (!_dragMode) return;
+        hsvWheelCanvas.setPointerCapture(e.pointerId);
+        dragging = true;
+        if (_dragMode === "hue") updateFromHuePoint(p.x, p.y); else updateFromSVPoint(p.x, p.y);
+        e.preventDefault();
+    }, {
+        passive: false
+    });
+    hsvWheelCanvas.addEventListener("pointermove", e => {
+        if (!dragging || !_dragMode) return;
+        const p = wheelLocalFromEvent(e);
+        if (_dragMode === "hue") updateFromHuePoint(p.x, p.y); else updateFromSVPoint(p.x, p.y);
+        e.preventDefault();
+    }, {
+        passive: false
+    });
+    hsvWheelCanvas.addEventListener("pointerup", e => {
+        dragging = false;
+        _dragMode = null;
+        try {
+            hsvWheelCanvas.releasePointerCapture(e.pointerId);
+        } catch {}
+    });
+    hsvWheelCanvas.addEventListener("pointercancel", () => {
+        dragging = false;
+        _dragMode = null;
+    });
+    new ResizeObserver(() => drawHSVWheel()).observe(hsvWheelWrap);
+}
+
 function computeWheelGeom() {
     const hsvWheelCanvas = $("hsvWheelCanvas");
-    const hsvWheelWrap = $("hsvWheelWrap")
+    const hsvWheelWrap = $("hsvWheelWrap");
     if (!hsvWheelCanvas || !hsvWheelWrap) return null;
     const dprLocal = window.devicePixelRatio || 1;
     const rect = hsvWheelWrap.getBoundingClientRect();
@@ -77,6 +171,7 @@ function buildSVSquareImage(geom) {
 function drawHSVWheel() {
     const hsvWheelCanvas = $("hsvWheelCanvas");
     if (!hsvWheelCanvas) return;
+    
     const ctx = hsvWheelCanvas.getContext("2d");
     if (!ctx) return;
     const geom = _wheelGeom = computeWheelGeom();

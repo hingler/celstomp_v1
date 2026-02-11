@@ -3,6 +3,7 @@ let _brushPrevCanvas = null;
 let _brushPrevLastEvt = null;
 let _brushPrevRAF = 0;
 let _brushPrevLastXY = null;
+let brushType = "circle";
 
 let eraserSize = 100;
 const DEFAULT_TOOL_BRUSH_SETTINGS = {

@@ -14,6 +14,7 @@
 
     const appScripts = [
         './js/helper-funcs.js',
+        
         './js/time-helper.js',
         './js/color-manager.js',
         './js/zoom-helper.js',
@@ -29,6 +30,8 @@
         './js/mobile-native-zoom-guard.js',
         './js/mount-island-dock.js',
         './js/ui-components.js',
+
+        './js/export-helper.js',
         './js/omggif.js',
         './celstomp-imgseq.js',
         './celstomp-autosave.js',

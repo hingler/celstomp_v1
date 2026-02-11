@@ -35,6 +35,27 @@ layerColorMem[LAYER.FILL] = fillWhite;
 const PAPER_LAYER = -1;
 let mainLayerOrder = DEFAULT_MAIN_LAYER_ORDER.slice();
 
+function normalizeMainLayerOrder(order) {
+    if (!Array.isArray(order)) return DEFAULT_MAIN_LAYER_ORDER.slice();
+    const seen = new Set;
+    const out = [];
+    for (const raw of order) {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) continue;
+        if (!MAIN_LAYERS.includes(n)) continue;
+        if (seen.has(n)) continue;
+        seen.add(n);
+        out.push(n);
+    }
+    for (const L of DEFAULT_MAIN_LAYER_ORDER) {
+        if (!seen.has(L)) out.push(L);
+    }
+    return out;
+}
+function mainLayersTopToBottom() {
+    return mainLayerOrder.slice().reverse();
+}
+
 function rememberedColorForLayer(L) {
   if (L === LAYER.FILL) return fillWhite;
   return layerColorMem[L] || "#000000";

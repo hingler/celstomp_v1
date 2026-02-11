@@ -332,9 +332,4 @@ function rgbToHsv(r, g, b) {
       v: v
   };
 }
-let hsvPick = {
-  h: 0,
-  s: 1,
-  v: 1
-};
 

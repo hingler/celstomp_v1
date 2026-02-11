@@ -18,8 +18,16 @@ let restoreTransAfterPlay = false;
 let prevOnionState = false;
 let prevTransState = false;
 
-
 let snapFrames = 1;
+
+// leftover timeline consts (TODO: factor out)
+const timelineTable = $("timelineTable");
+const timelineScroll = $("timelineScroll");
+const playheadMarker = $("playheadMarker");
+const clipStartMarker = $("clipStartMarker");
+const clipEndMarker = $("clipEndMarker");
+
+const hasTimeline = !!(timelineTable && timelineScroll && playheadMarker && clipStartMarker && clipEndMarker);
 
 function buildTimeline() {
   totalFrames = fps * seconds;
@@ -426,4 +434,390 @@ function moveCelBundle(fromF, toF) {
 
 function hasCel(F) {
   return MAIN_LAYERS.some(L => mainLayerHasContent(L, F));
+}
+
+function getCelBundle(F) {
+  return captureFrameBundle(F);
+}
+function setCelBundle(F, bundle) {
+  pasteFrameBundle(F, bundle);
+}
+function moveCelBundle(fromF, toF) {
+  moveFrameAllLayers(fromF, toF);
+}
+function deleteSelectedCels() {
+  if (!selectedCels.size) return;
+  const frames = selectedSorted();
+  for (const f of frames) {
+      clearFrameAllLayers(f);
+  }
+  for (let L = 0; L < LAYERS_COUNT; L++) pruneUnusedSublayers(L);
+  clearCelSelection();
+  renderAll();
+  if (hasTimeline) buildTimeline();
+  updateHUD();
+}
+function simulateRoomForDests(dests, dir) {
+  const occ = new Uint8Array(totalFrames);
+  for (let i = 0; i < totalFrames; i++) occ[i] = hasCel(i) ? 1 : 0;
+  for (const f of selectedCels) if (f >= 0 && f < totalFrames) occ[f] = 0;
+  const order = dests.slice().sort((a, b) => dir >= 0 ? b - a : a - b);
+  const pushes = [];
+  for (const d of order) {
+      if (d < 0 || d >= totalFrames) return null;
+      if (occ[d]) {
+          let j = d;
+          while (true) {
+              j += dir;
+              if (j < 0 || j >= totalFrames) return null;
+              if (!occ[j]) {
+                  occ[j] = 1;
+                  occ[d] = 0;
+                  pushes.push({
+                      from: d,
+                      to: j
+                  });
+                  break;
+              }
+          }
+      }
+      occ[d] = 1;
+  }
+  return pushes;
+}
+function moveSelectedCelsTo(startFrame) {
+  const frames = selectedSorted();
+  if (!frames.length) return;
+  const base = frames[0];
+  if (startFrame === base) return;
+  let shift = startFrame - base;
+  const minDest = frames[0] + shift;
+  const maxDest = frames[frames.length - 1] + shift;
+  if (minDest < 0) shift += -minDest;
+  if (maxDest > totalFrames - 1) shift -= maxDest - (totalFrames - 1);
+  if (shift === 0) return;
+  const dests = frames.map(f => f + shift);
+  const dir = shift > 0 ? 1 : -1;
+  const bundles = frames.map(f => ({
+      f: f,
+      b: getCelBundle(f)
+  }));
+  for (const f of frames) clearFrameAllLayers(f);
+  const pushes = simulateRoomForDests(dests, dir);
+  if (!pushes) {
+      for (const it of bundles) setCelBundle(it.f, it.b);
+      renderAll();
+      if (hasTimeline) buildTimeline();
+      return;
+  }
+  for (const mv of pushes) moveCelBundle(mv.from, mv.to);
+  for (let i = 0; i < frames.length; i++) setCelBundle(dests[i], bundles[i].b);
+  selectedCels = new Set(dests);
+  renderAll();
+  if (hasTimeline) buildTimeline();
+  gotoFrame(dests[0]);
+}
+let celDragActive = false;
+let celDragSource = -1;
+let celDropTarget = -1;
+let celDropLastValid = -1;
+function setDropTarget(frameIndex) {
+  if (!hasTimeline) return;
+  const tr = timelineTable.querySelector("tr.anim-row");
+  if (!tr) return;
+  [ ...tr.children ].forEach((cell, idx) => {
+      if (idx > 0) cell.classList.remove("dropTarget");
+  });
+  if (frameIndex >= 0) {
+      const td = tr.children[frameIndex + 1];
+      if (td) td.classList.add("dropTarget");
+  }
+}
+function moveCel(srcF, dstF) {
+  if (srcF === dstF || srcF < 0 || dstF < 0) return false;
+  if (!hasCel(srcF)) return false;
+  const saved = captureFrameBundle(srcF);
+  clearFrameAllLayers(srcF);
+  const dstOccupied = hasCel(dstF);
+  if (!dstOccupied) {
+      pasteFrameBundle(dstF, saved);
+  } else {
+      if (srcF < dstF) {
+          for (let i = srcF; i < dstF; i++) moveFrameAllLayers(i + 1, i);
+          pasteFrameBundle(dstF, saved);
+      } else {
+          for (let i = srcF - 1; i >= dstF; i--) moveFrameAllLayers(i, i + 1);
+          pasteFrameBundle(dstF, saved);
+      }
+  }
+  renderAll();
+  if (hasTimeline) buildTimeline();
+  gotoFrame(dstF);
+  try {
+      setSingleSelection(dstF);
+  } catch {}
+  return true;
+}
+let scrubbing = false;
+let scrubStartFrame = 0;
+let scrubMode = "playhead";
+let draggingClip = null;
+function frameFromClientX(clientX) {
+  const playRow = timelineTable.querySelector("tr.playhead-row");
+  if (!playRow) return 0;
+  const rect = playRow.getBoundingClientRect();
+  const x = clamp(clientX - rect.left + timelineScroll.scrollLeft, 0, playRow.scrollWidth);
+  const firstW = playRow.children[0]?.getBoundingClientRect().width || 200;
+  const cellW = playRow.children[1]?.getBoundingClientRect().width || nowCSSVarPx("--frame-w", 24) || 24;
+  const raw = clamp(Math.floor((x - firstW) / cellW), 0, totalFrames - 1);
+  return raw;
+}
+function overAnimRowAt(clientX, clientY) {
+  const el = document.elementFromPoint(clientX, clientY);
+  return !!(el && el.closest("tr.anim-row"));
+}
+function celIndices() {
+  const list = [];
+  for (let i = 0; i < totalFrames; i++) if (hasCel(i)) list.push(i);
+  return list;
+}
+
+///
+// timeline interaction
+///
+function startTimelineInteraction(e) {
+  if (!hasTimeline) return;
+  const scrollRect = timelineScroll.getBoundingClientRect();
+  const xInScroll = e.clientX - scrollRect.left + timelineScroll.scrollLeft;
+  const nearStart = Math.abs(edgeLeftPxOfFrame(clipStart) - xInScroll) < 6;
+  const nearEnd = Math.abs(edgeLeftPxOfFrame(clipEnd) - xInScroll) < 6;
+  if (nearStart || nearEnd) {
+      draggingClip = nearStart ? "start" : "end";
+      e.preventDefault();
+      return;
+  }
+  const animCell = e.target.closest("tr.anim-row td");
+  if (animCell && animCell.dataset.index !== undefined) {
+      const idx = parseInt(animCell.dataset.index, 10);
+      if (hasCel(idx)) {
+          if (!selectedCels.has(idx)) {
+              setSingleSelection(idx);
+          }
+          if (selectedCels.size > 1) {
+              groupDragActive = true;
+              groupDropStart = idx;
+              setDropTarget(idx);
+              setGhostTargetsForStart(idx);
+              document.body.classList.add("dragging-cel");
+          } else {
+              celDragActive = true;
+              celDragSource = idx;
+              celDropTarget = idx;
+              celDropLastValid = idx;
+              setDropTarget(idx);
+              setGhostTargetSingle(idx);
+              document.body.classList.add("dragging-cel");
+          }
+          e.preventDefault();
+          return;
+      }
+      selectingCels = true;
+      selAnchor = idx;
+      selLast = idx;
+      selectedCels.clear();
+      setSelectionRange(selAnchor, selLast);
+      document.body.classList.add("selecting-cels");
+      e.preventDefault();
+      return;
+  }
+  const playRow = e.target.closest("tr.playhead-row");
+  if (!playRow) return;
+  scrubbing = true;
+  scrubStartFrame = currentFrame;
+  scrubMode = "playhead";
+  const raw = frameFromClientX(e.clientX);
+  gotoFrame(applySnapFrom(scrubStartFrame, raw));
+  e.preventDefault();
+}
+function moveTimelineInteraction(e) {
+  if (!hasTimeline) return;
+  if (selectingCels) {
+      const raw = frameFromClientX(e.clientX);
+      selLast = clamp(raw, 0, totalFrames - 1);
+      setSelectionRange(selAnchor, selLast);
+      e.preventDefault();
+      return;
+  }
+  if (groupDragActive) {
+      if (overAnimRowAt(e.clientX, e.clientY)) {
+          const raw = frameFromClientX(e.clientX);
+          groupDropStart = clamp(raw, 0, totalFrames - 1);
+          setDropTarget(groupDropStart);
+          setGhostTargetsForStart(groupDropStart);
+          gotoFrame(groupDropStart);
+      } else {
+          groupDropStart = -1;
+          setDropTarget(-1);
+          clearGhostTargets();
+      }
+      e.preventDefault();
+      return;
+  }
+  if (celDragActive) {
+      if (overAnimRowAt(e.clientX, e.clientY)) {
+          const raw = frameFromClientX(e.clientX);
+          celDropTarget = clamp(raw, 0, totalFrames - 1);
+          celDropLastValid = celDropTarget;
+          setDropTarget(celDropTarget);
+          setGhostTargetSingle(celDropTarget);
+          gotoFrame(celDropTarget);
+      } else {
+          celDropTarget = -1;
+          setDropTarget(-1);
+          clearGhostTargets();
+      }
+      e.preventDefault();
+      return;
+  }
+  if (draggingClip) {
+      const raw = frameFromClientX(e.clientX);
+      if (draggingClip === "start") {
+          clipStart = clamp(raw, 0, clipEnd);
+          if (currentFrame < clipStart) gotoFrame(clipStart);
+      } else {
+          clipEnd = clamp(raw, clipStart, totalFrames - 1);
+          if (currentFrame > clipEnd) gotoFrame(clipEnd);
+      }
+      updateClipMarkers();
+      e.preventDefault();
+      return;
+  }
+  if (!scrubbing) return;
+  const raw = frameFromClientX(e.clientX);
+  gotoFrame(applySnapFrom(scrubStartFrame, raw));
+  e.preventDefault();
+}
+function endTimelineInteraction() {
+  if (!hasTimeline) return;
+  if (selectingCels) {
+      selectingCels = false;
+      document.body.classList.remove("selecting-cels");
+  }
+  if (groupDragActive) {
+      const target = groupDropStart;
+      setDropTarget(-1);
+      clearGhostTargets();
+      groupDragActive = false;
+      groupDropStart = -1;
+      document.body.classList.remove("dragging-cel");
+      if (target >= 0 && selectedCels.size) moveSelectedCelsTo(target);
+  }
+  if (celDragActive) {
+      const target = celDropTarget >= 0 ? celDropTarget : celDropLastValid;
+      setDropTarget(-1);
+      clearGhostTargets();
+      celDragActive = false;
+      document.body.classList.remove("dragging-cel");
+      if (target >= 0) moveCel(celDragSource, target);
+      celDropTarget = -1;
+      celDropLastValid = -1;
+  }
+  scrubbing = false;
+  draggingClip = null;
+}
+if (hasTimeline) {
+  timelineScroll.addEventListener("pointerdown", startTimelineInteraction, {
+      passive: false
+  });
+  window.addEventListener("pointermove", moveTimelineInteraction, {
+      passive: false
+  });
+  window.addEventListener("pointerup", endTimelineInteraction, {
+      passive: true
+  });
+}
+
+///
+// Playback controls
+///
+
+function stopPlayback() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  clearInterval(playTimer);
+  playTimer = null;
+}
+function applyPlayButtonsState() {
+  const playBtn = $("playBtn");
+  const pauseBtn = $("pauseBtn");
+  const stopBtn = $("stopBtn");
+  if (!playBtn || !pauseBtn || !stopBtn) return;
+  playBtn.disabled = isPlaying;
+  pauseBtn.disabled = !isPlaying;
+  stopBtn.disabled = !isPlaying;
+}
+function startPlayback() {
+  if (isPlaying) return;
+  prevOnionState = onionEnabled;
+  prevTransState = transparencyHoldEnabled;
+  restoreOnionAfterPlay = false;
+  restoreTransAfterPlay = false;
+  if (!keepOnionWhilePlaying && onionEnabled) {
+      onionEnabled = false;
+      restoreOnionAfterPlay = true;
+      if (toggleOnionBtn) toggleOnionBtn.textContent = "Onion: Off";
+  }
+  if (!keepTransWhilePlaying && transparencyHoldEnabled) {
+      transparencyHoldEnabled = false;
+      restoreTransAfterPlay = true;
+      if (toggleTransparencyBtn) toggleTransparencyBtn.textContent = "Transparency: Off";
+  }
+  renderAll();
+  isPlaying = true;
+  applyPlayButtonsState();
+  const interval = 1e3 / fps;
+  if (currentFrame < clipStart || currentFrame > clipEnd) gotoFrame(clipStart);
+  playTimer = setInterval(() => {
+      if (currentFrame >= clipEnd) {
+          if (loopPlayback) gotoFrame(clipStart); else {
+              pausePlayback();
+              return;
+          }
+      } else {
+          const step = playSnapped ? Math.max(1, snapFrames) : 1;
+          const next = Math.min(clipEnd, currentFrame + step);
+          gotoFrame(next);
+      }
+  }, interval);
+}
+function pausePlayback() {
+  if (!isPlaying) return;
+  stopPlayback();
+  applyPlayButtonsState();
+  if (restoreOnionAfterPlay) {
+      onionEnabled = prevOnionState;
+      if (toggleOnionBtn) toggleOnionBtn.textContent = `Onion: ${onionEnabled ? "On" : "Off"}`;
+      restoreOnionAfterPlay = false;
+  }
+  if (restoreTransAfterPlay) {
+      transparencyHoldEnabled = prevTransState;
+      if (toggleTransparencyBtn) toggleTransparencyBtn.textContent = `Transparency: ${transparencyHoldEnabled ? "On" : "Off"}`;
+      restoreTransAfterPlay = false;
+  }
+  renderAll();
+}
+function stopAndRewind() {
+  if (isPlaying) pausePlayback();
+  gotoFrame(clipStart);
+  const stopBtn = $("stopBtn");
+  if (stopBtn) stopBtn.disabled = true;
+}
+
+function nearestPrevCelIndex(F) {
+  for (let i = F - 1; i >= 0; i--) if (hasCel(i)) return i;
+  return -1;
+}
+function nearestNextCelIndex(F) {
+  for (let i = F + 1; i < totalFrames; i++) if (hasCel(i)) return i;
+  return -1;
 }
