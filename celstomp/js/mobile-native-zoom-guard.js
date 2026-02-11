@@ -94,7 +94,7 @@ function _wireCanvasPointerDrawingMobileSafe() {
           cancelLasso?.();
       } catch {}
       try {
-          clearFx?.();
+          onClearFx?.();
       } catch {}
       try {
           isDrawing = false;
@@ -184,4 +184,29 @@ function _wireCanvasPointerDrawingMobileSafe() {
   canvasEl.addEventListener("lostpointercapture", finish, {
       passive: false
   });
+}
+
+
+const _touchPointers = new Map;
+let _touchGestureActive = false;
+function _updateTouchGestureState() {
+    const was = _touchGestureActive;
+    _touchGestureActive = _touchPointers.size >= 2;
+    if (!was && _touchGestureActive) {
+        try {
+            cancelActiveStroke?.();
+        } catch {}
+        try {
+            endStroke?.(true);
+        } catch {}
+        try {
+            stopDrawing?.();
+        } catch {}
+        try {
+            isDrawing = false;
+        } catch {}
+        try {
+            lastX = lastY = null;
+        } catch {}
+    }
 }

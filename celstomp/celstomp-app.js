@@ -5,126 +5,8 @@
 (() => {
     "use strict";
 
-    let _cursorColorPicker = null;
-    function ensureCursorColorPicker() {
-        if (_cursorColorPicker && document.body.contains(_cursorColorPicker)) return _cursorColorPicker;
-        if (_cursorColorPicker) {
-            try {
-                _cursorColorPicker.remove();
-            } catch {}
-            _cursorColorPicker = null;
-        }
-        const inp = document.createElement("input");
-        inp.type = "color";
-        inp.id = "cursorColorPicker";
-        Object.assign(inp.style, {
-            position: "fixed",
-            left: "0px",
-            top: "0px",
-            width: "1px",
-            height: "1px",
-            opacity: "0.01",
-            zIndex: "2147483647",
-            border: "0",
-            padding: "0",
-            margin: "0",
-            background: "transparent",
-            pointerEvents: "auto"
-        });
-        document.body.appendChild(inp);
-        _cursorColorPicker = inp;
-        return inp;
-    }
-
-    function openColorPickerAtCursor(e, initialHex, onPick) {
-        const picker = ensureCursorColorPicker();
-        const pad = 8;
-        const w = 1, h = 1;
-        const x = Math.max(0, Math.min(window.innerWidth - w - 1, (e?.clientX ?? 0) + pad));
-        const y = Math.max(0, Math.min(window.innerHeight - h - 1, (e?.clientY ?? 0) + pad));
-        picker.style.left = x + "px";
-        picker.style.top = y + "px";
-        const norm = typeof normalizeToHex === "function" ? normalizeToHex(initialHex || "#000000") : initialHex || "#000000";
-        try {
-            picker.value = norm;
-        } catch {}
-        if (picker._pickCleanup) picker._pickCleanup();
-        const onInput = () => {
-            const v = picker.value || norm;
-            try {
-                onPick?.(v);
-            } catch {}
-        };
-        const onChange = () => {
-            const v = picker.value || norm;
-            try {
-                onPick?.(v);
-            } catch {}
-            try {
-                picker._pickCleanup?.();
-            } catch {}
-            try {
-                picker.blur?.();
-            } catch {}
-        };
-        picker.addEventListener("input", onInput, {
-            passive: true
-        });
-        picker.addEventListener("change", onChange, {
-            passive: true
-        });
-        picker._pickCleanup = () => {
-            picker.removeEventListener("input", onInput);
-            picker.removeEventListener("change", onChange);
-            picker._pickCleanup = null;
-        };
-        try {
-            picker.focus({
-                preventScroll: true
-            });
-        } catch {}
-        let opened = false;
-        try {
-            if (picker.showPicker) {
-                picker.showPicker();
-                opened = true;
-            }
-        } catch {}
-        if (!opened) {
-            try {
-                picker.click();
-                opened = true;
-            } catch {}
-        }
-        if (!opened) {
-            try {
-                picker.remove();
-            } catch {}
-            _cursorColorPicker = null;
-            const p2 = ensureCursorColorPicker();
-            p2.style.left = x + "px";
-            p2.style.top = y + "px";
-            try {
-                p2.value = norm;
-            } catch {}
-            try {
-                p2.focus({
-                    preventScroll: true
-                });
-            } catch {}
-            try {
-                p2.click();
-            } catch {}
-        }
-    }
-    function openColorPickerAtElement(anchorEl, initialHex, onPick) {
-        const r = anchorEl?.getBoundingClientRect?.();
-        const fakeEvent = {
-            clientX: r ? r.left + r.width / 2 : window.innerWidth / 2,
-            clientY: r ? r.top + r.height / 2 : window.innerHeight / 2
-        };
-        openColorPickerAtCursor(fakeEvent, initialHex, onPick);
-    }
+    
+    
 
     // shorthand funcs (more of)
 
@@ -230,7 +112,6 @@
         const chooseLassoFillBtn = $("chooseLassoFill");
         const addPaletteColorBtn = $("addPaletteColor");
         const clearAllBtn = $("clearAllBtn");
-        const paletteBar = $("paletteBar");
 
         const defLInput = $("defL");
         const defCInput = $("defC");
@@ -240,7 +121,6 @@
 
         const hsvWheelWrap = $("hsvWheelWrap");
         const hsvWheelCanvas = $("hsvWheelCanvas");
-        const hsvWheelPreview = $("hsvWheelPreview");
 
         const toolSeg = document.getElementById("toolSeg");
         const brushShapeSeg = document.getElementById("brushShapeSeg");
@@ -282,8 +162,6 @@
         const toolAngleRange = $("toolAngleRange");
         const brushVal = $("brushVal");
         const eraserVal = $("eraserVal");
-        const brushSwatch = $("brushSwatch");
-        const brushHexEl = $("brushHex");
         const exportMP4Btn = $("exportMP4");
         const restoreAutosaveBtn = document.getElementById("restoreAutosave");
         const toggleAutosaveBtn = document.getElementById("toggleAutosaveBtn");
@@ -313,7 +191,6 @@
         const autosaveIntervalConfirmBtn = document.getElementById("autosaveIntervalConfirmBtn");
         const autosaveIntervalCancelBtn = document.getElementById("autosaveIntervalCancelBtn");
         const stabilizationSelect = $("stabilizationLevel");
-        const penControls = $("penControls");
         const pressureSizeToggle = $("pressureSize") || $("usePressureSize");
         const pressureOpacityToggle = $("pressureOpacity") || $("usePressureOpacity");
         const pressureTiltToggle = $("pressureTilt") || $("usePressureTilt");
@@ -325,20 +202,8 @@
         const prevFrameBtn = $("prevFrame");
         const nextFrameBtn = $("nextFrame");
         let dpr = window.devicePixelRatio || 1;
-        let fps = 24;
-        let seconds = 5;
-        let totalFrames = fps * seconds;
-        let zoom = 1;
-        let offsetX = 0;
-        let offsetY = 0;
-        let canvasBgColor = "#bfbfbf";
         let transparencyHoldEnabled = false;
-        let isPlaying = false;
-        let playTimer = null;
-        let loopPlayback = true;
-        let clipStart = 0;
-        let clipEnd = Math.max(0, Math.min(totalFrames - 1, fps * 2 - 1));
-        let playSnapped = false;
+
         let onionEnabled = false;
         let onionAlpha = .5;
         let onionPrevTint = "#4080ff";
@@ -350,7 +215,7 @@
         let prevOnionState = false;
         let prevTransState = false;
         let snapFrames = 1;
-        let tool = "brush";
+        
         let brushSize = 3;
         let brushType = "circle";
         let eraserSize = 100;
@@ -375,72 +240,20 @@
         brushType = brushSettings.shape;
         brushSize = brushSettings.size;
         eraserSize = eraserSettings.size;
-        let currentColor = "#000000";
-        let usePressureSize = true;
-        let usePressureOpacity = false;
-        let usePressureTilt = false;
+        
         let antiAlias = false;
         let closeGapPx = 0;
         let autofill = false;
-        const fillWhite = "#ffffff";
-        const fillBrushTrailColor = "#ff1744";
-        const pressureCache = new Map;
-        const tiltCache = new Map;
-        const PRESSURE_MIN = .05;
-        let penDetected = false;
-        let stabilizationLevel = 5;
-        let pressureSmooth = .45;
-        let strokeSmooth = .6;
-        function pressureSmoothFromLevel(level) {
-            const lv = Math.max(0, Math.min(10, Number(level) || 0));
-            return Math.max(.2, Math.min(1, 1 - lv * .08));
-        }
-        function strokeSmoothFromLevel(level) {
-            const lv = Math.max(0, Math.min(10, Number(level) || 0));
-            return Math.max(.2, Math.min(1, 1 - lv * .08));
-        }
-        let rectSelection = {
-            active: false,
-            moving: false,
-            L: null,
-            F: null,
-            key: null,
-            x: 0,
-            y: 0,
-            w: 0,
-            h: 0,
-            startX: 0,
-            startY: 0,
-            baseX: 0,
-            baseY: 0,
-            moveDx: 0,
-            moveDy: 0,
-            fullSnap: null,
-            selSnap: null,
-            pointerId: null
-        };
-        const PALETTE_KEY = "celstomp_palette_v1";
-        let colorPalette = [];
-        let oklchDefault = {
-            L: 0,
-            C: .2,
-            H: 180
-        };
-        let pickerInitializing = false;
-        const LAYER = {
-            FILL: 0,
-            COLOR: 1,
-            SHADE: 2,
-            LINE: 3,
-            SKETCH: 4
-        };
+        
+        
+
+        // listeners for event hooks
+        onRenderAll(renderAll);
+        onUpdateHud(updateHUD);
+        onClearFx(clearFx);
 
         // layer logic
-        const MAIN_LAYERS = [ LAYER.FILL, LAYER.COLOR, LAYER.SHADE, LAYER.LINE, LAYER.SKETCH ];
-        const DEFAULT_MAIN_LAYER_ORDER = [ LAYER.FILL, LAYER.COLOR, LAYER.SHADE, LAYER.LINE, LAYER.SKETCH ];
-        const LAYERS_COUNT = 5;
-        const PAPER_LAYER = -1;
-        let mainLayerOrder = DEFAULT_MAIN_LAYER_ORDER.slice();
+        
         function normalizeMainLayerOrder(order) {
             if (!Array.isArray(order)) return DEFAULT_MAIN_LAYER_ORDER.slice();
             const seen = new Set;
@@ -461,511 +274,10 @@
         function mainLayersTopToBottom() {
             return mainLayerOrder.slice().reverse();
         }
-        let layers = new Array(LAYERS_COUNT).fill(0).map(() => ({
-            name: "",
-            opacity: 1,
-            prevOpacity: 1,
-            frames: new Array(totalFrames).fill(null),
-            sublayers: new Map,
-            suborder: []
-        }));
-        layers[LAYER.LINE].name = "LINE";
-        layers[LAYER.SHADE].name = "SHADE";
-        layers[LAYER.COLOR].name = "COLOR";
-        layers[LAYER.SKETCH].name = "SKETCH";
-        layers[LAYER.FILL].name = "FILL";
-        let activeLayer = LAYER.LINE;
-        let activeSubColor = new Array(LAYERS_COUNT).fill("#000000");
-        let layerColorMem = new Array(LAYERS_COUNT).fill("#000000");
-        layerColorMem[LAYER.FILL] = fillWhite;
-        function rememberedColorForLayer(L) {
-            if (L === LAYER.FILL) return fillWhite;
-            return layerColorMem[L] || "#000000";
-        }
-        function rememberCurrentColorForLayer(L = activeLayer) {
-            if (L === LAYER.FILL) return;
-            layerColorMem[L] = currentColor;
-        }
-        function applyRememberedColorForLayer(L = activeLayer) {
-            currentColor = rememberedColorForLayer(L);
-            setColorSwatch();
-            setPickerToColorString(currentColor);
-        }
-        const _ctrlMove = {
-            active: false,
-            pointerId: null,
-            startCX: 0,
-            startCY: 0,
-            dx: 0,
-            dy: 0,
-            L: 0,
-            F: 0,
-            key: "#000000",
-            canvas: null,
-            ctx: null,
-            snap: null,
-            w: 0,
-            h: 0
-        };
-        function _ctrlMovePickKeyForLayer(L) {
-            if (typeof LAYER !== "undefined" && L === LAYER.FILL) {
-                // what
-                return activeSubColor?.[LAYER.FILL] || fillWhite || "#ffffff";
-            }
-            return activeSubColor?.[L] ?? (typeof currentColor === "string" ? currentColor : "#000000");
-        }
-        function getActiveCelCanvasForMove() {
-            const L = activeLayer;
-            const F = currentFrame;
-            const key = typeof colorToHex === "function" ? colorToHex(_ctrlMovePickKeyForLayer(L)) : _ctrlMovePickKeyForLayer(L);
-            const c = typeof getFrameCanvas === "function" ? getFrameCanvas(L, F, key) : null;
-            return {
-                canvas: c,
-                L: L,
-                F: F,
-                key: key
-            };
-        }
-        function beginCtrlMove(e) {
-            if (activeLayer === PAPER_LAYER) return false;
-            const leftDown = e.button === 0 || e.buttons === 1;
-            if (!leftDown) return false;
-            const picked = getActiveCelCanvasForMove();
-            if (!picked.canvas) return false;
-            const ctx = picked.canvas.getContext("2d", {
-                willReadFrequently: true
-            });
-            if (!ctx) return false;
-            const pos = getCanvasPointer(e);
-            const cpt = screenToContent(pos.x, pos.y);
-            _ctrlMove.active = true;
-            _ctrlMove.pointerId = e.pointerId;
-            _ctrlMove.startCX = cpt.x;
-            _ctrlMove.startCY = cpt.y;
-            _ctrlMove.dx = 0;
-            _ctrlMove.dy = 0;
-            _ctrlMove.L = picked.L;
-            _ctrlMove.F = picked.F;
-            _ctrlMove.key = picked.key;
-            _ctrlMove.canvas = picked.canvas;
-            _ctrlMove.ctx = ctx;
-            _ctrlMove.w = picked.canvas.width | 0;
-            _ctrlMove.h = picked.canvas.height | 0;
-            try {
-                _ctrlMove.snap = ctx.getImageData(0, 0, _ctrlMove.w, _ctrlMove.h);
-            } catch {
-                _ctrlMove.active = false;
-                return false;
-            }
-            try {
-                beginGlobalHistoryStep(_ctrlMove.L, _ctrlMove.F, _ctrlMove.key);
-            } catch {}
-            try {
-                drawCanvas.setPointerCapture(e.pointerId);
-            } catch {}
-            return true;
-        }
-        function updateCtrlMove(e) {
-            if (!_ctrlMove.active) return;
-            const pos = getCanvasPointer(e);
-            const cpt = screenToContent(pos.x, pos.y);
-            const dx = Math.round(cpt.x - _ctrlMove.startCX);
-            const dy = Math.round(cpt.y - _ctrlMove.startCY);
-            if (dx === _ctrlMove.dx && dy === _ctrlMove.dy) return;
-            _ctrlMove.dx = dx;
-            _ctrlMove.dy = dy;
-            const ctx = _ctrlMove.ctx;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, _ctrlMove.w, _ctrlMove.h);
-            try {
-                markGlobalHistoryDirty();
-            } catch {}
-            ctx.putImageData(_ctrlMove.snap, dx, dy);
-            _ctrlMove.canvas._hasContent = true;
-            if (typeof renderAll === "function") renderAll();
-            if (typeof updateTimelineHasContent === "function") updateTimelineHasContent(_ctrlMove.F);
-        }
-        function endCtrlMove(e) {
-            if (!_ctrlMove.active) return;
-            try {
-                const data = _ctrlMove.ctx.getImageData(0, 0, _ctrlMove.w, _ctrlMove.h).data;
-                let any = false;
-                for (let i = 3; i < data.length; i += 4) {
-                    if (data[i] > 0) {
-                        any = true;
-                        break;
-                    }
-                }
-                _ctrlMove.canvas._hasContent = any;
-            } catch {}
-            _ctrlMove.active = false;
-            try {
-                drawCanvas.releasePointerCapture(_ctrlMove.pointerId);
-            } catch {}
-            if (typeof renderAll === "function") renderAll();
-            if (typeof updateTimelineHasContent === "function") updateTimelineHasContent(_ctrlMove.F);
-            try {
-                commitGlobalHistoryStep();
-            } catch {}
-            _ctrlMove.pointerId = null;
-            _ctrlMove.canvas = null;
-            _ctrlMove.ctx = null;
-            _ctrlMove.snap = null;
-        }
-        const historyLimit = 50;
-        const historyMap = new Map;
-        const globalHistory = {
-            undo: [],
-            redo: []
-        };
-        let _pendingGlobalStep = null;
-        let _globalStepDirty = false;
-        function markGlobalHistoryDirty() {
-            _globalStepDirty = true;
-        }
-        function beginGlobalHistoryStep(L = activeLayer, F = currentFrame, keyArg = null) {
-            _globalStepDirty = false;
-            if (L === PAPER_LAYER) {
-                _pendingGlobalStep = null;
-                return;
-            }
-            const key = resolveKeyFor(L, keyArg);
-            if (!key) {
-                _pendingGlobalStep = null;
-                return;
-            }
-            _pendingGlobalStep = {
-                L: L,
-                F: F,
-                key: key,
-                before: snapshotFor(L, F, key)
-            };
-        }
-        function commitGlobalHistoryStep() {
-            const s = _pendingGlobalStep;
-            _pendingGlobalStep = null;
-            if (!s || !_globalStepDirty) return;
-            const after = snapshotFor(s.L, s.F, s.key);
-            if (!s.before && !after) return;
-            globalHistory.undo.push({
-                ...s,
-                after: after
-            });
-            if (globalHistory.undo.length > historyLimit) globalHistory.undo.shift();
-            globalHistory.redo.length = 0;
-        }
-        function _jumpToActionContext(L, F) {
-            if (typeof setCurrentFrame === "function") setCurrentFrame(F); else currentFrame = F;
-            if (typeof setActiveLayer === "function") setActiveLayer(L); else activeLayer = L;
-            try {
-                renderAll();
-            } catch {}
-        }
-        function historyKey(L, F, key) {
-            return `${L}:${F}:${String(key || "")}`;
-        }
-        function resolveKeyFor(L, key) {
-            if (L === PAPER_LAYER) return null;
-            const norm = v => colorToHex(v || "#000000");
-            if (L === LAYER.FILL) {
-                const k = key || activeSubColor?.[LAYER.FILL] || fillWhite || "#FFFFFF";
-                return norm(k);
-            }
-            return norm(key || activeSubColor?.[L] || currentColor || "#000000");
-        }
-        function ensureHistory(L, F, key) {
-            const k = historyKey(L, F, key);
-            if (!historyMap.has(k)) historyMap.set(k, {
-                undo: [],
-                redo: []
-            });
-            return historyMap.get(k);
-        }
-        function snapshotFor(L, F, key) {
-            const k = resolveKeyFor(L, key);
-            if (!k) return null;
-            const c = getFrameCanvas(L, F, k);
-            if (!c || !c._hasContent) return null;
-            try {
-                const ctx = c.getContext("2d", {
-                    willReadFrequently: true
-                });
-                return ctx.getImageData(0, 0, contentW, contentH);
-            } catch {
-                return null;
-            }
-        }
-        function applySnapshot(L, F, key, shot) {
-            const k = resolveKeyFor(L, key);
-            if (!k) return;
-            const c = getFrameCanvas(L, F, k);
-            const ctx = c.getContext("2d", {
-                willReadFrequently: true
-            });
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, contentW, contentH);
-            if (shot) {
-                ctx.putImageData(shot, 0, 0);
-                c._hasContent = true;
-            } else {
-                c._hasContent = false;
-            }
-            renderAll();
-            updateTimelineHasContent(F);
-        }
-        function pushUndo(L, F, key) {
-            const k = resolveKeyFor(L, key);
-            if (!k) return;
-            const hist = ensureHistory(L, F, k);
-            const shot = snapshotFor(L, F, k);
-            hist.undo.push(shot);
-            if (hist.undo.length > historyLimit) hist.undo.shift();
-            hist.redo.length = 0;
-        }
-        function undo() {
-            const action = globalHistory.undo.pop();
-            if (!action) return;
-            globalHistory.redo.push(action);
-            _jumpToActionContext(action.L, action.F);
-            applySnapshot(action.L, action.F, action.key, action.before);
-        }
-        function redo() {
-            const action = globalHistory.redo.pop();
-            if (!action) return;
-            globalHistory.undo.push(action);
-            _jumpToActionContext(action.L, action.F);
-            applySnapshot(action.L, action.F, action.key, action.after);
-        }
-        let currentFrame = 0;
-        const _normC = document.createElement("canvas");
-        _normC.width = _normC.height = 1;
-        const _normCtx = _normC.getContext("2d", {
-            willReadFrequently: true
-        });
-        function normalizeToHex(colorStr) {
-            try {
-                _normCtx.clearRect(0, 0, 1, 1);
-                _normCtx.fillStyle = String(colorStr || "#000");
-                _normCtx.fillRect(0, 0, 1, 1);
-                const d = _normCtx.getImageData(0, 0, 1, 1).data;
-                return "#" + [ d[0], d[1], d[2] ].map(v => v.toString(16).padStart(2, "0")).join("");
-            } catch {
-                return "#000000";
-            }
-        }
-        function hexToRgb(hex) {
-            const h = normalizeToHex(hex).slice(1);
-            return {
-                r: parseInt(h.slice(0, 2), 16),
-                g: parseInt(h.slice(2, 4), 16),
-                b: parseInt(h.slice(4, 6), 16)
-            };
-        }
-        function rgbToHex(r, g, b) {
-            return ("#" + [ r, g, b ].map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, "0")).join("")).toUpperCase();
-        }
-        function hsvToRgb(h, s, v) {
-            h = (h % 360 + 360) % 360;
-            s = clamp(s, 0, 1);
-            v = clamp(v, 0, 1);
-            const c = v * s;
-            const x = c * (1 - Math.abs(h / 60 % 2 - 1));
-            const m = v - c;
-            let rp = 0, gp = 0, bp = 0;
-            if (h < 60) {
-                rp = c;
-                gp = x;
-                bp = 0;
-            } else if (h < 120) {
-                rp = x;
-                gp = c;
-                bp = 0;
-            } else if (h < 180) {
-                rp = 0;
-                gp = c;
-                bp = x;
-            } else if (h < 240) {
-                rp = 0;
-                gp = x;
-                bp = c;
-            } else if (h < 300) {
-                rp = x;
-                gp = 0;
-                bp = c;
-            } else {
-                rp = c;
-                gp = 0;
-                bp = x;
-            }
-            return {
-                r: Math.round((rp + m) * 255),
-                g: Math.round((gp + m) * 255),
-                b: Math.round((bp + m) * 255)
-            };
-        }
-        function rgbToHsv(r, g, b) {
-            r /= 255;
-            g /= 255;
-            b /= 255;
-            const max = Math.max(r, g, b), min = Math.min(r, g, b);
-            const d = max - min;
-            let h = 0;
-            if (d !== 0) {
-                if (max === r) h = 60 * ((g - b) / d % 6); else if (max === g) h = 60 * ((b - r) / d + 2); else h = 60 * ((r - g) / d + 4);
-            }
-            if (h < 0) h += 360;
-            const s = max === 0 ? 0 : d / max;
-            const v = max;
-            return {
-                h: h,
-                s: s,
-                v: v
-            };
-        }
-        let hsvPick = {
-            h: 0,
-            s: 1,
-            v: 1
-        };
-        let _wheelGeom = null;
-        let _wheelRingImg = null;
-        let _dragMode = null;
-        function rememberLayerColorSafe() {
-            try {
-                rememberCurrentColorForLayer?.(activeLayer);
-            } catch {}
-        }
-        function setCurrentColorHex(hex, {remember: remember = true} = {}) {
-            currentColor = normalizeToHex(hex);
-            setColorSwatch();
-            setHSVPreviewBox();
-            if (remember) rememberLayerColorSafe();
-            hsvPick = rgbToHsv(...Object.values(hexToRgb(currentColor)));
-            drawHSVWheel();
-        }
-        function setPickerDefaultBlack() {
-            setCurrentColorHex("#000000", {
-                remember: true
-            });
-        }
-        function computeWheelGeom() {
-            if (!hsvWheelCanvas || !hsvWheelWrap) return null;
-            const dprLocal = window.devicePixelRatio || 1;
-            const rect = hsvWheelWrap.getBoundingClientRect();
-            const sizeCss = Math.max(160, Math.floor(Math.min(rect.width, rect.height)));
-            const size = Math.floor(sizeCss * dprLocal);
-            hsvWheelCanvas.width = size;
-            hsvWheelCanvas.height = size;
-            const R = size / 2;
-            const ringOuter = R * .96;
-            const ringInner = R * .78;
-            const ringMid = (ringOuter + ringInner) / 2;
-            const sqSize = Math.floor(ringInner * 1.25);
-            const sqLeft = Math.floor(R - sqSize / 2);
-            const sqTop = Math.floor(R - sqSize / 2);
-            return {
-                size: size,
-                dprLocal: dprLocal,
-                R: R,
-                ringOuter: ringOuter,
-                ringInner: ringInner,
-                ringMid: ringMid,
-                sqLeft: sqLeft,
-                sqTop: sqTop,
-                sqSize: sqSize
-            };
-        }
-        function buildRingImage(geom) {
-            const {size: size, R: R, ringInner: ringInner, ringOuter: ringOuter} = geom;
-            const img = new ImageData(size, size);
-            const data = img.data;
-            for (let y = 0; y < size; y++) {
-                for (let x = 0; x < size; x++) {
-                    const dx = x - R;
-                    const dy = y - R;
-                    const dist = Math.hypot(dx, dy);
-                    const i = (y * size + x) * 4;
-                    if (dist >= ringInner && dist <= ringOuter) {
-                        const ang = Math.atan2(dy, dx);
-                        const h = (ang * 180 / Math.PI + 90 + 360) % 360;
-                        const rgb = hsvToRgb(h, 1, 1);
-                        data[i + 0] = rgb.r;
-                        data[i + 1] = rgb.g;
-                        data[i + 2] = rgb.b;
-                        data[i + 3] = 255;
-                    } else {
-                        data[i + 3] = 0;
-                    }
-                }
-            }
-            return img;
-        }
-        function buildSVSquareImage(geom) {
-            const {sqSize: sqSize, size: size} = geom;
-            const img = new ImageData(sqSize, sqSize);
-            const data = img.data;
-            for (let y = 0; y < sqSize; y++) {
-                const v = 1 - y / (sqSize - 1);
-                for (let x = 0; x < sqSize; x++) {
-                    const s = x / (sqSize - 1);
-                    const rgb = hsvToRgb(hsvPick.h, s, v);
-                    const i = (y * sqSize + x) * 4;
-                    data[i + 0] = rgb.r;
-                    data[i + 1] = rgb.g;
-                    data[i + 2] = rgb.b;
-                    data[i + 3] = 255;
-                }
-            }
-            return img;
-        }
-        function drawHSVWheel() {
-            if (!hsvWheelCanvas) return;
-            const ctx = hsvWheelCanvas.getContext("2d");
-            if (!ctx) return;
-            const geom = _wheelGeom = computeWheelGeom();
-            if (!geom) return;
-            ctx.clearRect(0, 0, geom.size, geom.size);
-            if (!_wheelRingImg || !_wheelRingImg._size || _wheelRingImg._size !== geom.size) {
-                _wheelRingImg = buildRingImage(geom);
-                _wheelRingImg._size = geom.size;
-            }
-            ctx.putImageData(_wheelRingImg, 0, 0);
-            const svImg = buildSVSquareImage(geom);
-            ctx.putImageData(svImg, geom.sqLeft, geom.sqTop);
-            ctx.save();
-            ctx.strokeStyle = "rgba(255,255,255,0.12)";
-            ctx.lineWidth = Math.max(1, geom.size * .004);
-            ctx.strokeRect(geom.sqLeft + .5, geom.sqTop + .5, geom.sqSize - 1, geom.sqSize - 1);
-            ctx.restore();
-            const mx = geom.sqLeft + hsvPick.s * geom.sqSize;
-            const my = geom.sqTop + (1 - hsvPick.v) * geom.sqSize;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(mx, my, Math.max(5, geom.size * .02), 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(0,0,0,0.65)";
-            ctx.lineWidth = Math.max(2, geom.size * .007);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(mx, my, Math.max(4, geom.size * .017), 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(255,255,255,0.95)";
-            ctx.lineWidth = Math.max(2, geom.size * .006);
-            ctx.stroke();
-            ctx.restore();
-            const ang = (hsvPick.h - 90) * Math.PI / 180;
-            const hx = geom.R + Math.cos(ang) * geom.ringMid;
-            const hy = geom.R + Math.sin(ang) * geom.ringMid;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(hx, hy, Math.max(6, geom.size * .024), 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(0,0,0,0.55)";
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(hx, hy, Math.max(5, geom.size * .02), 0, Math.PI * 2);
-            ctx.strokeStyle = "rgba(255,255,255,0.95)";
-            ctx.lineWidth = Math.max(2, geom.size * .006);
-            ctx.stroke();
-            ctx.restore();
-        }
+        
+        
+        
+        
         function wheelLocalFromEvent(e) {
             const rect = hsvWheelCanvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) * (hsvWheelCanvas.width / rect.width);
@@ -1158,7 +470,6 @@
             let activeTip = null;
             const GAP = 8;
             const isHoverCapable = () => window.matchMedia("(hover: hover)").matches;
-            const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
             const hideTip = () => {
                 activeTip = null;
                 brushShapeTooltip.hidden = true;
@@ -1352,7 +663,7 @@
             if (!pt) return;
             const cx = pt.x;
             const cy = pt.y;
-            const z = typeof zoom === "number" && isFinite(zoom) ? zoom : 1;
+            const z = typeof getZoom() === "number" && isFinite(getZoom()) ? getZoom() : 1;
             const settings = isEraser ? eraserSettings : brushSettings;
             const renderSettings = normalizedBrushRenderSettings(settings);
             const shape = brushShapeForType(renderSettings.shape || "circle");
@@ -1382,16 +693,8 @@
             _brushPrevEl.style.transform = `translate(-50%, -50%) rotate(${shapeRotation + (renderSettings.angle || 0)}deg)`;
             _brushPrevEl.style.display = "block";
         }
-        function framesToSF(f) {
-            return {
-                s: Math.floor(f / fps),
-                f: f % fps
-            };
-        }
-        function sfString(f) {
-            const o = framesToSF(f);
-            return `${o.s}s+${o.f}f`;
-        }
+        
+        
         function resizeCanvases() {
             dpr = window.devicePixelRatio || 1;
             const cw = stageEl.clientWidth || stageEl.getBoundingClientRect().width || window.innerWidth;
@@ -1418,39 +721,20 @@
         function setTransform(ctx) {
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, offsetX, offsetY);
-        }
-        function screenToContent(sx, sy) {
-            const devX = sx * dpr;
-            const devY = sy * dpr;
-            const cx = (devX - offsetX) / (zoom * dpr);
-            const cy = (devY - offsetY) / (zoom * dpr);
-            return {
-                x: cx,
-                y: cy
-            };
-        }
-        function getCanvasPointer(e) {
-            const rect = drawCanvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            return {
-                x: x,
-                y: y
-            };
+            ctx.setTransform(getZoom() * dpr, 0, 0, getZoom() * dpr, getOffsetX(), getOffsetY());
         }
         function centerView() {
             const cw = drawCanvas.width;
             const ch = drawCanvas.height;
-            offsetX = (cw - contentW * zoom * dpr) / 2;
-            offsetY = (ch - contentH * zoom * dpr) / 2;
+            setOffsetX((cw - contentW * getZoom() * dpr) / 2);
+            setOffsetY((ch - contentH * getZoom() * dpr) / 2);
             updateHUD();
             renderAll();
             updatePlayheadMarker();
             updateClipMarkers();
         }
         function resetCenter() {
-            zoom = 1;
+            setZoom(1);
             centerView();
         }
 
@@ -1460,19 +744,14 @@
             safeText(frameInfo, `${currentFrame + 1} / ${totalFrames}`);
             safeText(hudTime, sfString(currentFrame));
             safeText(timeCounter, sfString(currentFrame));
-            safeText(zoomInfo, `${Math.round(zoom * 100)}%`);
+            safeText(zoomInfo, `${Math.round(getZoom() * 100)}%`);
             safeText(toolName, tool.replace("-", " ").replace(/\b\w/g, m => m.toUpperCase()));
             safeText(fpsLabel, String(fps));
             safeText(secLabel, String(seconds));
+            highlightTimelineCell();
             refreshToolSettingsUI();
         }
-        const _colorCtx = (() => {
-            const c = document.createElement("canvas");
-            c.width = c.height = 1;
-            return c.getContext("2d", {
-                willReadFrequently: true
-            });
-        })();
+    
         function colorToHex(c) {
             const ctx = _colorCtx;
             if (!ctx) return String(c || "#000").trim();
@@ -1483,91 +762,12 @@
             const r = d[0] | 0, g = d[1] | 0, b = d[2] | 0;
             return "#" + [ r, g, b ].map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
         }
-        function ensureSublayer(L, colorStr) {
-            const hex = swatchColorKey(colorStr);
-            const layer = layers[L];
-            if (!layer) return null;
-            if (!layer.sublayers) layer.sublayers = new Map;
-            if (!layer.suborder) layer.suborder = [];
-            let sub = layer.sublayers.get(hex);
-            if (!sub) {
-                sub = {
-                    color: hex,
-                    frames: new Array(totalFrames).fill(null)
-                };
-                layer.sublayers.set(hex, sub);
-                if (!layer.suborder.includes(hex)) layer.suborder.push(hex);
-                if (layer.suborder.length > 1) {
-                    const seen = new Set;
-                    layer.suborder = layer.suborder.filter(k => {
-                        if (seen.has(k)) return false;
-                        seen.add(k);
-                        return true;
-                    });
-                }
-                if (Array.isArray(activeSubColor)) activeSubColor[L] = activeSubColor[L] || hex;
-                try {
-                    normalizeLayerSwatchKeys(layer);
-                } catch {}
-                try {
-                    renderLayerSwatches(L);
-                } catch {}
-            } else {
-                if (sub.frames.length < totalFrames) {
-                    const oldLen = sub.frames.length;
-                    sub.frames.length = totalFrames;
-                    for (let i = oldLen; i < totalFrames; i++) sub.frames[i] = null;
-                }
-                if (layer.suborder.includes(hex)) {
-                    const seen = new Set;
-                    layer.suborder = layer.suborder.filter(k => {
-                        if (seen.has(k)) return false;
-                        seen.add(k);
-                        return true;
-                    });
-                } else {
-                    layer.suborder.push(hex);
-                }
-                if (!layer.sublayers.has(hex)) {
-                    for (const [k, sw] of Array.from(layer.sublayers.entries())) {
-                        const ck = swatchColorKey(k);
-                        if (ck === hex && k !== hex) {
-                            layer.sublayers.delete(k);
-                            layer.sublayers.set(hex, sw);
-                            break;
-                        }
-                    }
-                }
-            }
-            return sub;
-        }
-        function getFrameCanvas(L, F, colorStr) {
-            const key = colorToHex(colorStr || activeSubColor?.[L] || currentColor || "#000");
-            const sub = ensureSublayer(L, key);
-            if (!sub) return null;
-            if (!sub.frames[F]) {
-                const off = document.createElement("canvas");
-                off.width = contentW;
-                off.height = contentH;
-                off._hasContent = false;
-                sub.frames[F] = off;
-            }
-            return sub.frames[F];
-        }
+        
         function markFrameHasContent(L, F, colorStr) {
             const c = getFrameCanvas(L, F, colorStr);
             if (c) c._hasContent = true;
         }
-        function mainLayerHasContent(L, F) {
-            const layer = layers[L];
-            if (!layer || !layer.suborder || !layer.sublayers) return false;
-            for (const key of layer.suborder) {
-                const sub = layer.sublayers.get(key);
-                const off = sub?.frames?.[F];
-                if (off && off._hasContent) return true;
-            }
-            return false;
-        }
+        
         function canvasesWithContentForMainLayerFrame(L, F) {
             const layer = layers[L];
             if (!layer) return [];
@@ -1585,9 +785,7 @@
             return out;
         }
 
-        function hasCel(F) {
-            return MAIN_LAYERS.some(L => mainLayerHasContent(L, F));
-        }
+        
         function drawExactCel(ctx, idx) {
             for (const L of mainLayerOrder) {
                 const layer = layers[L];
@@ -1602,597 +800,8 @@
                 ctx.restore();
             }
         }
-        let _paperColorPicker = null;
-
-        function setCanvasBgColor(next) {
-            canvasBgColor = normalizeToHex(next || canvasBgColor || "#bfbfbf");
-            if (bgColorInput) bgColorInput.value = canvasBgColor;
-            renderPaperSwatch();
-            renderAll();
-        }
-
-        function renderPaperSwatch() {
-            const host = document.getElementById("swatches-paper");
-            if (!host) return;
-            host.innerHTML = "";
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "layerSwatchBtn" + (activeLayer === PAPER_LAYER ? " active" : "");
-            btn.style.background = canvasBgColor;
-            btn.title = `PAPER: ${String(canvasBgColor || "").toUpperCase()}`;
-            btn.addEventListener("pointerdown", e => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, {
-                passive: false
-            });
-            btn.addEventListener("click", e => {
-                e.preventDefault();
-                e.stopPropagation();
-                const startHex = normalizeToHex(canvasBgColor);
-                requestAnimationFrame(() => {
-                    openColorPickerAtElement(btn, startHex, hex => {
-                        setCanvasBgColor(hex);
-                    });
-                });
-            });
-            host.appendChild(btn);
-        }
-        function swatchContainerIdForLayer(L) {
-            if (L === PAPER_LAYER) return "swatches-paper";
-            if (L === LAYER.SKETCH) return "swatches-sketch";
-            if (L === LAYER.LINE) return "swatches-line";
-            if (L === LAYER.SHADE) return "swatches-shade";
-            if (L === LAYER.COLOR) return "swatches-color";
-            return "swatches-fill";
-        }
-        function layerRadioIdForLayer(L) {
-            if (L === PAPER_LAYER) return "bt-paper";
-            if (L === LAYER.SKETCH) return "bt-sketch-layer";
-            if (L === LAYER.LINE) return "bt-line";
-            if (L === LAYER.SHADE) return "bt-color";
-            if (L === LAYER.COLOR) return "bt-sketch";
-            return "bt-fill";
-        }
-
-        function layerFromValue(val) {
-            if (val === "paper") return PAPER_LAYER;
-            if (val === "sketch") return LAYER.SKETCH;
-            if (val === "line") return LAYER.LINE;
-            if (val === "shade") return LAYER.SHADE;
-            if (val === "color") return LAYER.COLOR;
-            if (val === "fill") return LAYER.FILL;
-            return LAYER.LINE;
-        }
-
-        function setLayerRadioChecked(L) {
-            const id = layerRadioIdForLayer(L);
-            const r = document.getElementById(id);
-            if (r) r.checked = true;
-        }
-
-        function commitSwatchOrderFromDOM(host, L) {
-            const layer = layers?.[L];
-            if (!layer) return;
-            const btns = Array.from(host.querySelectorAll(".layerSwatchBtn"));
-            const domOrder = btns.map(b => swatchColorKey((b?.dataset?.key || "").trim())).filter(Boolean);
-            const seen = new Set;
-            const next = [];
-            for (const k of domOrder) {
-                if (!seen.has(k)) {
-                    seen.add(k);
-                    next.push(k);
-                }
-            }
-            const mapKeys = layer.sublayers ? Array.from(layer.sublayers.keys()) : [];
-            for (const k of mapKeys) {
-                if (!seen.has(k)) {
-                    seen.add(k);
-                    next.push(k);
-                }
-            }
-            layer.suborder = next;
-            try {
-                normalizeLayerSwatchKeys(layer);
-            } catch {}
-            if (activeSubColor?.[L] && !layer.suborder.includes(activeSubColor[L])) {
-                activeSubColor[L] = layer.suborder[0] || activeSubColor[L];
-            }
-            renderAll();
-        }
-        let _swatchPtrDrag = null;
-        function _swatchHostLayer(host) {
-            const id = host?.id || "";
-            if (id === "swatches-sketch") return LAYER.SKETCH;
-            if (id === "swatches-line") return LAYER.LINE;
-            if (id === "swatches-shade") return LAYER.SHADE;
-            if (id === "swatches-color") return LAYER.COLOR;
-            if (id === "swatches-fill") return LAYER.FILL;
-            return null;
-        }
-        function wireSwatchPointerDnD(host) {
-            if (!host || host._swatchPtrDnDWired) return;
-            host._swatchPtrDnDWired = true;
-            const THRESH = 4;
-            function layerRowInfoFromEl(el) {
-                const row = el?.closest?.("[data-layer-row]") || null;
-                if (!row) return null;
-                const L = Number(row.dataset.layerRow);
-                if (!Number.isFinite(L) || L === PAPER_LAYER) return null;
-                return {
-                    row: row,
-                    L: L
-                };
-            }
-            function cleanup() {
-                window.removeEventListener("pointermove", onMove);
-                window.removeEventListener("pointerup", onUp);
-                window.removeEventListener("pointercancel", onUp);
-            }
-            function clearHoverTarget() {
-                if (_swatchPtrDrag?.hoverBtn) {
-                    _swatchPtrDrag.hoverBtn.classList.remove("swatchDropTarget");
-                    _swatchPtrDrag.hoverBtn = null;
-                }
-            }
-            function clearHoverLayerRow() {
-                if (_swatchPtrDrag?.hoverRowEl) {
-                    _swatchPtrDrag.hoverRowEl.classList.remove("swatchLayerDropTarget");
-                    _swatchPtrDrag.hoverRowEl = null;
-                    _swatchPtrDrag.overRowLayer = null;
-                }
-            }
-            function onMove(e) {
-                const d = _swatchPtrDrag;
-                if (!d || e.pointerId !== d.pointerId) return;
-                const dx = Math.abs(e.clientX - d.startX);
-                const dy = Math.abs(e.clientY - d.startY);
-                if (!d.moved) {
-                    if (dx + dy < THRESH) return;
-                    d.moved = true;
-                    d.btn._skipClickOnce = true;
-                    d.btn.classList.add("swatchDragging");
-                    document.body.classList.add("swatch-reordering");
-                }
-                clearHoverTarget();
-                clearHoverLayerRow();
-                const el = document.elementFromPoint(e.clientX, e.clientY);
-                const overHost = el?.closest?.('[id^="swatches-"]') || null;
-                if (overHost && overHost.id === "swatches-paper") {
-                    e.preventDefault();
-                    return;
-                }
-                if (!overHost) {
-                    const info = layerRowInfoFromEl(el);
-                    if (info) {
-                        if (String(info.L) !== String(d.srcLayer)) {
-                            info.row.classList.add("swatchLayerDropTarget");
-                            d.hoverRowEl = info.row;
-                            d.overRowLayer = info.L;
-                        }
-                    }
-                    e.preventDefault();
-                    return;
-                }
-                d.overHost = overHost;
-                const btns = Array.from(overHost.querySelectorAll(".layerSwatchBtn"));
-                let insertBefore = null;
-                for (const b of btns) {
-                    if (b === d.btn) continue;
-                    const r = b.getBoundingClientRect();
-                    const mid = r.left + r.width / 2;
-                    if (e.clientX < mid) {
-                        insertBefore = b;
-                        break;
-                    }
-                }
-                if (insertBefore) {
-                    if (d.btn.nextSibling !== insertBefore) overHost.insertBefore(d.btn, insertBefore);
-                } else {
-                    if (overHost.lastElementChild !== d.btn) overHost.appendChild(d.btn);
-                }
-                const overBtn = el?.closest?.(".layerSwatchBtn");
-                if (overBtn && overBtn !== d.btn) {
-                    overBtn.classList.add("swatchDropTarget");
-                    d.hoverBtn = overBtn;
-                }
-                e.preventDefault();
-            }
-            function onUp(e) {
-                const d = _swatchPtrDrag;
-                if (!d || e.pointerId !== d.pointerId) return;
-                try {
-                    d.btn.releasePointerCapture(e.pointerId);
-                } catch {}
-                clearHoverTarget();
-                clearHoverLayerRow();
-                if (d.moved) {
-                    d.btn.classList.remove("swatchDragging");
-                    document.body.classList.remove("swatch-reordering");
-                    const el = document.elementFromPoint(e.clientX, e.clientY);
-                    const overHost = el?.closest?.('[id^="swatches-"]') || null;
-                    const rowInfo = layerRowInfoFromEl(el);
-                    const srcL = Number(d.srcLayer);
-                    const srcKey = d.srcKey;
-                    const dstLayerFromHost = overHost ? _swatchHostLayer(overHost) : null;
-                    const dstLayer = dstLayerFromHost != null ? dstLayerFromHost : d.overRowLayer != null ? Number(d.overRowLayer) : rowInfo?.L != null ? Number(rowInfo.L) : null;
-                    const overBtn = el?.closest?.(".layerSwatchBtn");
-                    const overBtnLayer = overBtn ? Number(overBtn.dataset.layerId) : null;
-                    if (overBtn && overBtn !== d.btn && Number.isFinite(overBtnLayer)) {
-                        const dstL = overBtnLayer;
-                        const dstParentKey = String(overBtn.dataset.key || "");
-                        const allowSameLayerPair = !!e.shiftKey;
-                        if (String(dstL) !== String(srcL) || allowSameLayerPair) {
-                            pairSwatchAcrossLayers(srcL, srcKey, dstL, dstParentKey);
-                            _swatchPtrDrag = null;
-                            cleanup();
-                            return;
-                        }
-                    }
-                    if (dstLayer != null && String(dstLayer) !== String(srcL)) {
-                        const ok = moveSwatchToLayerUnpaired(srcL, srcKey, dstLayer);
-                        if (!ok) {
-                            try {
-                                renderLayerSwatches(srcL);
-                            } catch {}
-                            try {
-                                renderLayerSwatches(dstLayer);
-                            } catch {}
-                        }
-                        _swatchPtrDrag = null;
-                        cleanup();
-                        return;
-                    }
-                    if (dstLayer != null) {
-                        const hostToCommit = overHost || d.srcHost;
-                        commitSwatchOrderFromDOM(hostToCommit, dstLayer);
-                    } else {
-                        renderLayerSwatches(srcL);
-                    }
-                    e.preventDefault();
-                }
-                _swatchPtrDrag = null;
-                cleanup();
-            }
-            host.addEventListener("pointerdown", e => {
-                const btn = e.target.closest(".layerSwatchBtn");
-                if (!btn || !host.contains(btn)) return;
-                if (e.pointerType === "mouse" && e.button !== 0) return;
-                if (e.target.closest(".swatchCaret")) return;
-                const srcLayer = Number(btn.dataset.layerId);
-                const srcKey = String(btn.dataset.key || "");
-                if (!Number.isFinite(srcLayer) || !srcKey) return;
-                _swatchPtrDrag = {
-                    pointerId: e.pointerId,
-                    btn: btn,
-                    srcHost: host,
-                    overHost: host,
-                    srcLayer: srcLayer,
-                    srcKey: srcKey,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    moved: false,
-                    hoverBtn: null,
-                    hoverRowEl: null,
-                    overRowLayer: null
-                };
-                try {
-                    btn.setPointerCapture(e.pointerId);
-                } catch {}
-                window.addEventListener("pointermove", onMove, {
-                    passive: false
-                });
-                window.addEventListener("pointerup", onUp, {
-                    passive: false
-                });
-                window.addEventListener("pointercancel", onUp, {
-                    passive: false
-                });
-            }, {
-                passive: false
-            });
-        }
-        let _swatchDnD = null;
-        function swatchColorKey(c) {
-            c = (c || "").trim();
-            if (!c) return "#000000";
-            if (c[0] === "#") {
-                let h = c.slice(1).replace(/[^0-9a-fA-F]/g, "");
-                if (h.length === 3) h = h.split("").map(ch => ch + ch).join("");
-                if (h.length >= 6) h = h.slice(0, 6);
-                while (h.length < 6) h += "0";
-                return ("#" + h).toUpperCase();
-            }
-            const m = c.match(/rgba?\(([^)]+)\)/i);
-            if (m) {
-                const parts = m[1].split(/[,/ ]+/).filter(Boolean);
-                const r = Math.max(0, Math.min(255, (Number(parts[0]) || 0) | 0));
-                const g = Math.max(0, Math.min(255, (Number(parts[1]) || 0) | 0));
-                const b = Math.max(0, Math.min(255, (Number(parts[2]) || 0) | 0));
-                return ("#" + r.toString(16).padStart(2, "0") + g.toString(16).padStart(2, "0") + b.toString(16).padStart(2, "0")).toUpperCase();
-            }
-            try {
-                const hex = colorToHex(c);
-                if (hex && /^#[0-9A-F]{6}$/.test(hex)) return hex;
-            } catch {}
-            return c.toUpperCase();
-        }
-        function normalizeLayerSwatchKeys(layer) {
-            if (!layer) return;
-            if (!layer.sublayers) layer.sublayers = new Map;
-            if (!layer.suborder) layer.suborder = [];
-            const m = layer.sublayers;
-            for (const [k, sw] of Array.from(m.entries())) {
-                const c = swatchColorKey(k);
-                if (c !== k) {
-                    if (!m.has(c)) {
-                        m.delete(k);
-                        m.set(c, sw);
-                    } else {
-                        m.delete(k);
-                    }
-                }
-                if (sw && typeof sw === "object") {
-                    sw.key = sw._key = sw.hex = c;
-                }
-            }
-            const newOrd = [];
-            const seen = new Set;
-            for (const k of Array.isArray(layer.suborder) ? layer.suborder : []) {
-                const c = swatchColorKey(k);
-                if (!seen.has(c) && m.has(c)) {
-                    seen.add(c);
-                    newOrd.push(c);
-                }
-            }
-            layer.suborder = newOrd;
-            for (const [k, sw] of m.entries()) {
-                if (!sw || typeof sw !== "object") continue;
-                if (sw.parentKey) sw.parentKey = swatchColorKey(sw.parentKey);
-                if (Array.isArray(sw.children)) {
-                    const kids = [];
-                    const kseen = new Set;
-                    for (const ck of sw.children) {
-                        const cc = swatchColorKey(ck);
-                        if (!kseen.has(cc) && m.has(cc)) {
-                            kseen.add(cc);
-                            kids.push(cc);
-                        }
-                    }
-                    sw.children = kids;
-                }
-            }
-        }
-
-        function pairSwatchAcrossLayers(srcL, srcKey, dstL, dstParentKey) {
-            if (srcL == null || dstL == null) return false;
-            if (!srcKey || !dstParentKey) return false;
-            if (String(srcL) === String(dstL) && srcKey === dstParentKey) return false;
-            const srcLayer = layers[srcL];
-            const dstLayer = layers[dstL];
-            if (!srcLayer || !dstLayer) return false;
-            const srcMap = srcLayer.sublayers;
-            const dstMap = dstLayer.sublayers;
-            if (!srcMap || !dstMap) return false;
-            const sw = srcMap.get(srcKey);
-            const parent = dstMap.get(dstParentKey);
-            if (!sw || !parent) return false;
-            if (sw.parentKey) {
-                const oldParent = srcMap.get(sw.parentKey);
-                if (oldParent && Array.isArray(oldParent.children)) {
-                    oldParent.children = oldParent.children.filter(k => k !== srcKey);
-                }
-                delete sw.parentKey;
-            }
-            srcMap.delete(srcKey);
-            const si = srcLayer.suborder.indexOf(srcKey);
-            if (si >= 0) srcLayer.suborder.splice(si, 1);
-            dstMap.set(srcKey, sw);
-            if (!dstLayer.suborder.includes(srcKey)) {
-                dstLayer.suborder.push(srcKey);
-            }
-            sw.parentKey = dstParentKey;
-            if (!Array.isArray(parent.children)) {
-                parent.children = [];
-            }
-            if (!parent.children.includes(srcKey)) {
-                parent.children.push(srcKey);
-            }
-            renderLayerSwatches(srcL);
-            renderLayerSwatches(dstL);
-            return true;
-        }
-
-        function getSwatchObj(layer, key) {
-            try {
-                return layer?.sublayers?.get(key) ?? null;
-            } catch {
-                return null;
-            }
-        }
-        function detachFromParentIfAnyInLayer(layer, swKey) {
-            const sw = getSwatchObj(layer, swKey);
-            if (!sw || !sw.parentKey) return;
-            const parent = getSwatchObj(layer, sw.parentKey);
-            if (parent && Array.isArray(parent.children)) {
-                parent.children = parent.children.filter(k => k !== swKey);
-            }
-            delete sw.parentKey;
-        }
-
-        function moveSwatchToLayerUnpaired(srcL, srcKey, dstL) {
-            const srcLayer = layers[srcL];
-            const dstLayer = layers[dstL];
-            if (!srcLayer || !dstLayer) return false;
-            const srcMap = srcLayer.sublayers;
-            const dstMap = dstLayer.sublayers;
-            if (!srcMap || !dstMap) return false;
-            const sw = srcMap.get(srcKey);
-            if (!sw) return false;
-            const sameLayer = String(srcL) === String(dstL);
-            const wasActiveOnSrc = activeLayer === srcL && String(activeSubColor?.[srcL] || "") === String(srcKey);
-            detachFromParentIfAnyInLayer(srcLayer, srcKey);
-            if (!sameLayer && dstMap.has(srcKey)) {
-                console.warn("[Celstomp] Can't move swatch: target layer already has key:", srcKey);
-                return false;
-            }
-            if (!sameLayer) {
-                srcMap.delete(srcKey);
-                const si = srcLayer.suborder.indexOf(srcKey);
-                if (si >= 0) srcLayer.suborder.splice(si, 1);
-                dstMap.set(srcKey, sw);
-                if (!dstLayer.suborder.includes(srcKey)) dstLayer.suborder.push(srcKey);
-                try {
-                    migrateHistoryForSwatchMove(srcL, dstL, srcKey);
-                } catch {}
-            } else {
-                const si = srcLayer.suborder.indexOf(srcKey);
-                if (si >= 0) {
-                    srcLayer.suborder.splice(si, 1);
-                    srcLayer.suborder.push(srcKey);
-                }
-            }
-            delete sw.parentKey;
-            if (!sameLayer && String(activeSubColor?.[srcL] || "") === String(srcKey)) {
-                const fb = fallbackSwatchKeyForLayer(srcL);
-                if (Array.isArray(activeSubColor) && fb) activeSubColor[srcL] = fb;
-            }
-            if (!sameLayer && wasActiveOnSrc) {
-                activeLayer = dstL;
-                if (Array.isArray(activeSubColor)) activeSubColor[dstL] = srcKey;
-                currentColor = srcKey;
-                try {
-                    setLayerRadioChecked(dstL);
-                } catch {}
-                try {
-                    setPickerToColorString?.(srcKey);
-                } catch {}
-                try {
-                    setColorSwatch?.();
-                } catch {}
-                try {
-                    setHSVPreviewBox?.();
-                } catch {}
-                try {
-                    updateHUD?.();
-                } catch {}
-            }
-            renderLayerSwatches(srcL);
-            if (!sameLayer) renderLayerSwatches(dstL);
-            try {
-                refreshTimelineRowHasContentAll();
-            } catch {}
-            try {
-                renderAll?.();
-            } catch {}
-            return true;
-        }
-        function renderLayerSwatches(onlyLayer = null) {
-            renderPaperSwatch();
-            if (onlyLayer != null) {
-                const n = Number(onlyLayer);
-                if (Number.isFinite(n)) onlyLayer = n;
-            }
-            const todo = onlyLayer === null ? mainLayerOrder.slice() : [ onlyLayer ];
-            for (const L of todo) {
-                const host = document.getElementById(swatchContainerIdForLayer(L));
-                if (!host) continue;
-                host.innerHTML = "";
-                const layer = layers[L];
-                if (!layer) continue;
-                if (!layer.sublayers) layer.sublayers = new Map;
-                if (!layer.suborder) layer.suborder = [];
-                normalizeLayerSwatchKeys(layer);
-                const getSw = k => layer.sublayers.get(k) || null;
-                const hasKids = sw => !!(sw && Array.isArray(sw.children) && sw.children.length);
-                function makeBtn(key, depth, hiddenByFolder) {
-                    const swObj = getSw(key);
-                    const btn = document.createElement("button");
-                    btn.type = "button";
-                    const isSelected = activeSubColor?.[L] === key;
-                    btn.className = "layerSwatchBtn" + (isSelected ? " active" : "");
-                    if (isSelected && activeLayer === L) btn.classList.add("activeOnActiveLayer");
-                    if (depth > 0) btn.classList.add("isChild");
-                    if (hiddenByFolder) btn.classList.add("hiddenByFolder");
-                    if (hasKids(swObj)) btn.classList.add("hasKids");
-                    btn.style.background = key;
-                    if (depth > 0) btn.style.marginLeft = `${depth * 14}px`;
-                    btn.draggable = false;
-                    btn.dataset.layerId = String(L);
-                    btn.dataset.swatchKey = String(key);
-                    btn.dataset.key = String(key);
-                    const pKey = swObj?.parentKey;
-                    btn.title = depth > 0 && pKey ? `${key} (paired under ${pKey})` : key;
-                    if (hasKids(swObj)) {
-                        const caret = document.createElement("span");
-                        caret.className = "swatchCaret";
-                        caret.textContent = swObj.collapsed ? "▸" : "▾";
-                        caret.addEventListener("click", e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            swObj.collapsed = !swObj.collapsed;
-                            renderLayerSwatches(L);
-                        });
-                        btn.appendChild(caret);
-                    }
-                    const readKey = () => swatchColorKey(String(btn.dataset.key || btn.dataset.swatchKey || key || ""));
-                    btn.addEventListener("click", e => {
-                        if (btn._skipClickOnce) {
-                            btn._skipClickOnce = false;
-                            return;
-                        }
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const k = swatchColorKey(readKey());
-                        activeLayer = L;
-                        if (Array.isArray(activeSubColor)) activeSubColor[L] = k;
-                        currentColor = k;
-                        try {
-                            setPickerToColorString?.(k);
-                        } catch {}
-                        try {
-                            setColorSwatch?.();
-                        } catch {}
-                        try {
-                            setHSVPreviewBox?.();
-                        } catch {}
-                        setLayerRadioChecked(L);
-                        try {
-                            updateHUD?.();
-                        } catch {}
-                        renderLayerSwatches();
-                    });
-                    btn.addEventListener("contextmenu", e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openSwatchContextMenu(L, readKey(), e);
-                    }, {
-                        passive: false
-                    });
-                    host.appendChild(btn);
-                    return btn;
-                }
-                function renderTree(key, depth, ancestorCollapsed) {
-                    const swObj = getSw(key);
-                    if (!swObj) return;
-                    const hiddenByFolder = !!ancestorCollapsed;
-                    makeBtn(key, depth, hiddenByFolder);
-                    const kids = Array.isArray(swObj.children) ? swObj.children : [];
-                    const nextAncestorCollapsed = ancestorCollapsed || !!swObj.collapsed;
-                    for (const ck of kids) {
-                        if (!getSw(ck)) continue;
-                        renderTree(ck, depth + 1, nextAncestorCollapsed);
-                    }
-                }
-                for (const key of layer.suborder) {
-                    const swObj = getSw(key);
-                    if (!swObj) continue;
-                    if (swObj.parentKey) continue;
-                    renderTree(key, 0, false);
-                }
-                wireSwatchPointerDnD(host);
-            }
-        }
+        
+        
         let timelineFrameWidth = 30;
         let soloLayer = null;
 
@@ -2625,7 +1234,7 @@
             setTransform(bctx);
             bctx.fillStyle = "#2a2f38";
             bctx.strokeStyle = "#3b4759";
-            bctx.lineWidth = 2 / Math.max(zoom, 1);
+            bctx.lineWidth = 2 / Math.max(getZoom(), 1);
             bctx.fillRect(0, 0, contentW, contentH);
             bctx.strokeRect(0, 0, contentW, contentH);
             drawRectSelectionOverlay(bctx);
@@ -2688,7 +1297,7 @@
             fxctx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
         }
         function fxTransform() {
-            fxctx.setTransform(zoom * dpr, 0, 0, zoom * dpr, offsetX, offsetY);
+            fxctx.setTransform(getZoom() * dpr, 0, 0, getZoom() * dpr, getOffsetX(), getOffsetY());
         }
         function fxStamp1px(x0, y0, x1, y1) {
             const s = 1;
@@ -3467,8 +2076,7 @@
                 } catch {}
             }
             currentFrame = 0;
-            clipStart = 0;
-            clipEnd = Math.max(0, Math.min(totalFrames - 1, fps * 2 - 1));
+            
             globalHistory.undo.length = 0;
             globalHistory.redo.length = 0;
             historyMap.clear();
@@ -3488,479 +2096,10 @@
                 markProjectDirty?.();
             } catch {}
         }
-        function buildTimeline() {
-            if (!hasTimeline) return;
-            totalFrames = fps * seconds;
-            for (const layer of layers) {
-                if (!layer?.sublayers || !layer?.suborder) continue;
-                for (const key of layer.suborder) {
-                    const sub = layer.sublayers.get(key);
-                    if (!sub) continue;
-                    const old = sub.frames || [];
-                    const n = new Array(totalFrames).fill(null);
-                    const copy = Math.min(old.length, n.length);
-                    for (let i = 0; i < copy; i++) n[i] = old[i];
-                    sub.frames = n;
-                }
-            }
-            layers.forEach(l => {
-                const old = l.frames;
-                const n = new Array(totalFrames).fill(null);
-                const copy = Math.min(old.length, n.length);
-                for (let i = 0; i < copy; i++) n[i] = old[i];
-                l.frames = n;
-            });
-            clipStart = clamp(clipStart, 0, totalFrames - 1);
-            clipEnd = clamp(clipEnd, clipStart, totalFrames - 1);
-            timelineTable.innerHTML = "";
-            const playRow = document.createElement("tr");
-            playRow.className = "playhead-row";
-            const phTh = document.createElement("th");
-            phTh.className = "sticky";
-            phTh.id = "playheadSticky";
-            phTh.textContent = "Playhead";
-            playRow.appendChild(phTh);
-            for (let i = 0; i < totalFrames; i++) {
-                const td = document.createElement("td");
-                td.dataset.index = String(i);
-                if (i % fps === 0) td.textContent = `${i / fps}s`;
-                playRow.appendChild(td);
-            }
-            timelineTable.appendChild(playRow);
-            const tr = document.createElement("tr");
-            tr.className = "anim-row";
-            const th = document.createElement("th");
-            th.className = "sticky";
-            th.textContent = "Animation";
-            tr.appendChild(th);
-            for (let i = 0; i < totalFrames; i++) {
-                const td = document.createElement("td");
-                td.dataset.index = String(i);
-                if (i % fps === 0) td.classList.add("secondTick");
-                if (hasCel(i)) td.classList.add("hasContent");
-                tr.appendChild(td);
-            }
-            timelineTable.appendChild(tr);
-            currentFrame = clamp(currentFrame, 0, totalFrames - 1);
-            updateHUD();
-            pruneSelection();
-            highlightTimelineCell();
-            updatePlayheadMarker();
-            updateClipMarkers();
-        }
-        function highlightTimelineCell() {
-            if (!hasTimeline) return;
-            const tr = timelineTable.querySelector("tr.anim-row");
-            if (!tr) return;
-            [ ...tr.children ].forEach((cell, idx) => {
-                if (idx === 0) return;
-                const f = idx - 1;
-                cell.classList.toggle("active", f === currentFrame);
-                cell.classList.toggle("hasContent", hasCel(f));
-                cell.classList.toggle("selected", selectedCels.has(f));
-                cell.classList.toggle("ghostTarget", ghostTargets.has(f));
-            });
-            const ph = $("playheadSticky");
-            if (ph) ph.textContent = `Playhead — ${sfString(currentFrame)}`;
-        }
-        function updateTimelineHasContent(F) {
-            if (!hasTimeline) return;
-            const tr = timelineTable.querySelector("tr.anim-row");
-            if (!tr) return;
-            const td = tr.children[F + 1];
-            if (!td) return;
-            td.classList.toggle("hasContent", hasCel(F));
-        }
-        function refreshTimelineRowHasContentAll() {
-            if (!hasTimeline) return;
-            const tr = timelineTable.querySelector("tr.anim-row");
-            if (!tr) return;
-            for (let F = 0; F < totalFrames; F++) {
-                const td = tr.children[F + 1];
-                if (td) td.classList.toggle("hasContent", hasCel(F));
-            }
-            try {
-                highlightTimelineCell?.();
-            } catch {}
-        }
-        function fallbackSwatchKeyForLayer(L) {
-            if (L == null || L === PAPER_LAYER) return null;
-            const layer = layers?.[L];
-            const ord = layer?.suborder || [];
-            const map = layer?.sublayers;
-            for (const k of ord) {
-                if (k && map?.get?.(k)) return k;
-            }
-            if (L === LAYER.FILL) return fillWhite || "#FFFFFF";
-            try {
-                return rememberedColorForLayer?.(L) ?? "#000000";
-            } catch {}
-            return "#000000";
-        }
-        function migrateHistoryForSwatchMove(srcL, dstL, key) {
-            if (!historyMap || srcL == null || dstL == null) return;
-            const srcK = typeof resolveKeyFor === "function" ? resolveKeyFor(srcL, key) : key;
-            const dstK = typeof resolveKeyFor === "function" ? resolveKeyFor(dstL, key) : key;
-            for (let F = 0; F < totalFrames; F++) {
-                const from = historyKey(srcL, F, srcK);
-                const to = historyKey(dstL, F, dstK);
-                const srcHist = historyMap.get(from);
-                if (!srcHist) continue;
-                const dstHist = historyMap.get(to);
-                if (!dstHist) {
-                    historyMap.set(to, srcHist);
-                } else {
-                    dstHist.undo = [ ...dstHist.undo, ...srcHist.undo ].slice(-historyLimit);
-                    dstHist.redo = [ ...dstHist.redo, ...srcHist.redo ].slice(-historyLimit);
-                }
-                historyMap.delete(from);
-            }
-        }
-        function updatePlayheadMarker() {
-            if (!hasTimeline) return;
-            const playRow = timelineTable.querySelector("tr.playhead-row");
-            if (!playRow) return;
-            const targetCell = playRow.children[currentFrame + 1];
-            if (!targetCell) return;
-            const cellRect = targetCell.getBoundingClientRect();
-            const scrollRect = timelineScroll.getBoundingClientRect();
-            const leftInScroll = cellRect.left - scrollRect.left + timelineScroll.scrollLeft;
-            playheadMarker.style.left = Math.round(leftInScroll) + "px";
-        }
-        function edgeLeftPxOfFrame(frameIndex) {
-            if (!hasTimeline) return 0;
-            const playRow = timelineTable.querySelector("tr.playhead-row");
-            const cell = playRow?.children[frameIndex + 1];
-            if (!cell) return 0;
-            const cellRect = cell.getBoundingClientRect();
-            const scrollRect = timelineScroll.getBoundingClientRect();
-            return cellRect.left - scrollRect.left + timelineScroll.scrollLeft;
-        }
-        function updateClipMarkers() {
-            if (!hasTimeline) return;
-            clipStartMarker.style.left = Math.round(edgeLeftPxOfFrame(clipStart)) + "px";
-            clipEndMarker.style.left = Math.round(edgeLeftPxOfFrame(clipEnd)) + "px";
-        }
-        function applySnapFrom(start, i) {
-            if (snapFrames > 0) {
-                const delta = i - start;
-                return clamp(start + Math.round(delta / snapFrames) * snapFrames, 0, totalFrames - 1);
-            }
-            return clamp(i, 0, totalFrames - 1);
-        }
-        function stepBySnap(delta) {
-            if (snapFrames > 0) return clamp(currentFrame + delta * snapFrames, 0, totalFrames - 1);
-            return clamp(currentFrame + delta, 0, totalFrames - 1);
-        }
-        function gotoFrame(i) {
-            currentFrame = clamp(i, 0, totalFrames - 1);
-            updateHUD();
-            renderAll();
-            updatePlayheadMarker();
-            if (!hasTimeline) return;
-            const playRow = timelineTable.querySelector("tr.playhead-row");
-            const cell = playRow?.children[currentFrame + 1];
-            if (!cell) return;
-            const r = cell.getBoundingClientRect();
-            const sr = timelineScroll.getBoundingClientRect();
-            const left = r.left - sr.left + timelineScroll.scrollLeft;
-            const right = left + r.width;
-            if (left < timelineScroll.scrollLeft) timelineScroll.scrollLeft = left - 20; else if (right > timelineScroll.scrollLeft + timelineScroll.clientWidth) {
-                timelineScroll.scrollLeft = right - timelineScroll.clientWidth + 20;
-            }
-        }
-        function setColorSwatch() {
-            if (!brushSwatch || !brushHexEl) return;
-            const tmp = document.createElement("canvas").getContext("2d", {
-                willReadFrequently: true
-            });
-            tmp.fillStyle = currentColor;
-            tmp.fillRect(0, 0, 1, 1);
-            const [r, g, b] = tmp.getImageData(0, 0, 1, 1).data;
-            const hex = "#" + [ r, g, b ].map(v => v.toString(16).padStart(2, "0")).join("");
-            brushSwatch.style.background = hex;
-            brushHexEl.textContent = hex.toUpperCase();
-        }
-        function setHSVPreviewBox() {
-            if (!hsvWheelPreview) return;
-            hsvWheelPreview.style.background = currentColor || "#000000";
-        }
-        function loadPalette() {
-            try {
-                const raw = localStorage.getItem(PALETTE_KEY);
-                const parsed = raw ? JSON.parse(raw) : [];
-                colorPalette = Array.isArray(parsed) ? parsed.map(c => normalizeToHex(c)).slice(0, 48) : [];
-            } catch {
-                colorPalette = [];
-            }
-        }
-        function savePalette() {
-            try {
-                localStorage.setItem(PALETTE_KEY, JSON.stringify(colorPalette.slice(0, 48)));
-            } catch {}
-        }
-        function renderPalette() {
-            if (!paletteBar) return;
-            paletteBar.innerHTML = "";
-            for (const color of colorPalette) {
-                const b = document.createElement("button");
-                b.type = "button";
-                b.className = "paletteSwatch";
-                b.style.background = color;
-                b.title = color;
-                b.addEventListener("click", () => {
-                    setCurrentColorHex(color);
-                    if (tool === "eyedropper") {
-                        const brushRadio = $("tool-brush");
-                        if (brushRadio) brushRadio.checked = true;
-                        tool = "brush";
-                        updateHUD();
-                    }
-                });
-                b.addEventListener("contextmenu", e => {
-                    e.preventDefault();
-                    colorPalette = colorPalette.filter(c => c !== color);
-                    savePalette();
-                    renderPalette();
-                });
-                paletteBar.appendChild(b);
-            }
-        }
-        function addCurrentColorToPalette() {
-            const hex = normalizeToHex(currentColor);
-            colorPalette = [ hex, ...colorPalette.filter(c => c !== hex) ].slice(0, 48);
-            savePalette();
-            renderPalette();
-        }
-        function getPixelHexAtContentPoint(cx, cy) {
-            const x = Math.max(0, Math.min(contentW - 1, Math.round(cx)));
-            const y = Math.max(0, Math.min(contentH - 1, Math.round(cy)));
-            const tmp = document.createElement("canvas");
-            tmp.width = contentW;
-            tmp.height = contentH;
-            const tctx = tmp.getContext("2d", {
-                willReadFrequently: true
-            });
-            if (!tctx) return null;
-            drawCompositeAt(tctx, currentFrame, true, true, transparencyHoldEnabled ? .25 : 1);
-            let d;
-            try {
-                d = tctx.getImageData(x, y, 1, 1).data;
-            } catch {
-                return null;
-            }
-            return rgbToHex(d[0], d[1], d[2]);
-        }
-        function pickCanvasColorAtEvent(e) {
-            const pos = getCanvasPointer(e);
-            const pt = screenToContent(pos.x, pos.y);
-            const picked = getPixelHexAtContentPoint(pt.x, pt.y);
-            if (!picked) return;
-            setCurrentColorHex(picked);
-            addCurrentColorToPalette();
-        }
-        function clearRectSelection() {
-            rectSelection.active = false;
-            rectSelection.moving = false;
-            rectSelection.fullSnap = null;
-            rectSelection.selSnap = null;
-            rectSelection.pointerId = null;
-            rectSelection.moveDx = 0;
-            rectSelection.moveDy = 0;
-            renderAll();
-        }
-        function drawRectSelectionOverlay(ctx) {
-            if (!rectSelection.active) return;
-            ctx.save();
-            ctx.lineWidth = Math.max(1 / Math.max(zoom, 1), .75);
-            ctx.setLineDash([ 6 / Math.max(zoom, 1), 4 / Math.max(zoom, 1) ]);
-            ctx.strokeStyle = "#00e5ff";
-            ctx.fillStyle = "rgba(0, 229, 255, 0.12)";
-            ctx.fillRect(rectSelection.x, rectSelection.y, rectSelection.w, rectSelection.h);
-            ctx.strokeRect(rectSelection.x, rectSelection.y, rectSelection.w, rectSelection.h);
-            ctx.restore();
-        }
-        function beginRectSelect(e) {
-            if (activeLayer === PAPER_LAYER) return;
-            const pos = getCanvasPointer(e);
-            const pt = screenToContent(pos.x, pos.y);
-            const key = resolveKeyFor(activeLayer, activeSubColor?.[activeLayer] ?? currentColor);
-            if (!key) return;
-            if (rectSelection.active) {
-                const inX = pt.x >= rectSelection.x && pt.x <= rectSelection.x + rectSelection.w;
-                const inY = pt.y >= rectSelection.y && pt.y <= rectSelection.y + rectSelection.h;
-                const sameTarget = rectSelection.L === activeLayer && rectSelection.F === currentFrame && rectSelection.key === key;
-                if (inX && inY && sameTarget) {
-                    const c = getFrameCanvas(activeLayer, currentFrame, key);
-                    const ctx = c.getContext("2d", {
-                        willReadFrequently: true
-                    });
-                    if (!ctx) return;
-                    try {
-                        rectSelection.fullSnap = ctx.getImageData(0, 0, contentW, contentH);
-                        rectSelection.selSnap = ctx.getImageData(rectSelection.x, rectSelection.y, rectSelection.w, rectSelection.h);
-                    } catch {
-                        clearRectSelection();
-                        return;
-                    }
-                    rectSelection.moving = true;
-                    rectSelection.baseX = rectSelection.x;
-                    rectSelection.baseY = rectSelection.y;
-                    rectSelection.startX = pt.x;
-                    rectSelection.startY = pt.y;
-                    rectSelection.pointerId = e.pointerId ?? null;
-                    beginGlobalHistoryStep(activeLayer, currentFrame, key);
-                    return;
-                }
-            }
-            rectSelection.active = true;
-            rectSelection.moving = false;
-            rectSelection.L = activeLayer;
-            rectSelection.F = currentFrame;
-            rectSelection.key = key;
-            rectSelection.startX = pt.x;
-            rectSelection.startY = pt.y;
-            rectSelection.x = Math.floor(pt.x);
-            rectSelection.y = Math.floor(pt.y);
-            rectSelection.w = 1;
-            rectSelection.h = 1;
-            rectSelection.pointerId = e.pointerId ?? null;
-            renderAll();
-        }
-        function updateRectSelect(e) {
-            if (!rectSelection.active) return;
-            const pos = getCanvasPointer(e);
-            const pt = screenToContent(pos.x, pos.y);
-            if (rectSelection.moving) {
-                const dx = Math.round(pt.x - rectSelection.startX);
-                const dy = Math.round(pt.y - rectSelection.startY);
-                if (dx === rectSelection.moveDx && dy === rectSelection.moveDy) return;
-                rectSelection.moveDx = dx;
-                rectSelection.moveDy = dy;
-                rectSelection.x = Math.max(0, Math.min(contentW - rectSelection.w, rectSelection.baseX + dx));
-                rectSelection.y = Math.max(0, Math.min(contentH - rectSelection.h, rectSelection.baseY + dy));
-                const c = getFrameCanvas(rectSelection.L, rectSelection.F, rectSelection.key);
-                const ctx = c.getContext("2d", {
-                    willReadFrequently: true
-                });
-                if (!ctx || !rectSelection.fullSnap || !rectSelection.selSnap) return;
-                ctx.putImageData(rectSelection.fullSnap, 0, 0);
-                ctx.clearRect(rectSelection.baseX, rectSelection.baseY, rectSelection.w, rectSelection.h);
-                ctx.putImageData(rectSelection.selSnap, rectSelection.x, rectSelection.y);
-                markGlobalHistoryDirty();
-                c._hasContent = true;
-                renderAll();
-                updateTimelineHasContent(rectSelection.F);
-                return;
-            }
-            const x0 = rectSelection.startX;
-            const y0 = rectSelection.startY;
-            const x1 = pt.x;
-            const y1 = pt.y;
-            rectSelection.x = Math.max(0, Math.floor(Math.min(x0, x1)));
-            rectSelection.y = Math.max(0, Math.floor(Math.min(y0, y1)));
-            rectSelection.w = Math.max(1, Math.ceil(Math.abs(x1 - x0)));
-            rectSelection.h = Math.max(1, Math.ceil(Math.abs(y1 - y0)));
-            rectSelection.w = Math.min(rectSelection.w, contentW - rectSelection.x);
-            rectSelection.h = Math.min(rectSelection.h, contentH - rectSelection.y);
-            renderAll();
-        }
-        function endRectSelect() {
-            if (!rectSelection.active) return;
-            if (rectSelection.moving) {
-                rectSelection.moving = false;
-                rectSelection.baseX = rectSelection.x;
-                rectSelection.baseY = rectSelection.y;
-                rectSelection.fullSnap = null;
-                rectSelection.selSnap = null;
-                commitGlobalHistoryStep();
-                renderAll();
-                return;
-            }
-            const c = getFrameCanvas(rectSelection.L, rectSelection.F, rectSelection.key);
-            const ctx = c.getContext("2d", {
-                willReadFrequently: true
-            });
-            if (!ctx) {
-                clearRectSelection();
-                return;
-            }
-            let img;
-            try {
-                img = ctx.getImageData(rectSelection.x, rectSelection.y, rectSelection.w, rectSelection.h);
-            } catch {
-                clearRectSelection();
-                return;
-            }
-            let hasAlpha = false;
-            for (let i = 3; i < img.data.length; i += 4) {
-                if (img.data[i] > 0) {
-                    hasAlpha = true;
-                    break;
-                }
-            }
-            if (!hasAlpha) {
-                clearRectSelection();
-                return;
-            }
-            renderAll();
-        }
-        function pressure(e) {
-            const pid = Number.isFinite(e?.pointerId) ? e.pointerId : -1;
-            const isPen = e?.pointerType === "pen";
-            const raw = typeof e?.pressure === "number" && e.pressure > 0 ? e.pressure : isPen ? .35 : 1;
-            const prev = pressureCache.has(pid) ? pressureCache.get(pid) : raw;
-            const smoothed = prev + (raw - prev) * pressureSmooth;
-            const out = Math.max(PRESSURE_MIN, Math.min(1, smoothed));
-            pressureCache.set(pid, out);
-            return out;
-        }
-        function tiltAmount(e) {
-            const pid = Number.isFinite(e?.pointerId) ? e.pointerId : -1;
-            if (e?.pointerType !== "pen") {
-                tiltCache.set(pid, 0);
-                return 0;
-            }
-            const tx = Number.isFinite(e?.tiltX) ? e.tiltX : 0;
-            const ty = Number.isFinite(e?.tiltY) ? e.tiltY : 0;
-            const raw = Math.max(0, Math.min(1, Math.hypot(tx, ty) / 90));
-            const prev = tiltCache.has(pid) ? tiltCache.get(pid) : raw;
-            const smoothed = prev + (raw - prev) * .35;
-            const out = Math.max(0, Math.min(1, smoothed));
-            tiltCache.set(pid, out);
-            return out;
-        }
+        
         function setPenControlsVisible(visible) {
-            if (!penControls) return;
-            penControls.hidden = !visible;
-        }
-        function notePenDetected(e) {
-            if (!e || e.pointerType !== "pen") return;
-            if (penDetected) return;
-            penDetected = true;
-            setPenControlsVisible(true);
-        }
-        function shouldStabilizeTool(name) {
-            return name === "brush" || name === "eraser" || name === "fill-brush" || name === "fill-eraser";
-        }
-        function stabilizePoint(e, x, y) {
-            if (!shouldStabilizeTool(tool)) return {
-                x: x,
-                y: y
-            };
-            const pt = {
-                x: x,
-                y: y
-            };
-            if (!stabilizedPt) {
-                stabilizedPt = pt;
-                return pt;
-            }
-            stabilizedPt = {
-                x: stabilizedPt.x + (pt.x - stabilizedPt.x) * strokeSmooth,
-                y: stabilizedPt.y + (pt.y - stabilizedPt.y) * strokeSmooth
-            };
-            return stabilizedPt;
+            if (!$("penControls")) return;
+            $("penControls").hidden = !visible;
         }
 
         const _brushMaskCache = new Map();
@@ -4619,42 +2758,10 @@
             updateTimelineHasContent(F);
             return true;
         }
-        let isDrawing = false;
-        const _touchPointers = new Map;
-        let _touchGestureActive = false;
-        function _updateTouchGestureState() {
-            const was = _touchGestureActive;
-            _touchGestureActive = _touchPointers.size >= 2;
-            if (!was && _touchGestureActive) {
-                try {
-                    cancelActiveStroke?.();
-                } catch {}
-                try {
-                    endStroke?.(true);
-                } catch {}
-                try {
-                    stopDrawing?.();
-                } catch {}
-                try {
-                    isDrawing = false;
-                } catch {}
-                try {
-                    lastX = lastY = null;
-                } catch {}
-            }
-        }
         
-        let lastPt = null;
-        let stabilizedPt = null;
-        let strokeHex = null;
-        let _fillEraseAllLayers = false;
-        let isPanning = false;
-        let panStart = {
-            x: 0,
-            y: 0,
-            ox: 0,
-            oy: 0
-        };
+        
+        
+        
         let trailPoints = [];
         let lassoActive = false;
         let lassoPts = [];
@@ -4681,8 +2788,8 @@
                 fxctx.fill();
             }
             fxctx.globalAlpha = 1;
-            fxctx.lineWidth = Math.max(1 / (zoom * dpr), .6);
-            fxctx.setLineDash([ 10 / zoom, 7 / zoom ]);
+            fxctx.lineWidth = Math.max(1 / (getZoom() * dpr), .6);
+            fxctx.setLineDash([ 10 / getZoom(), 7 / getZoom() ]);
             fxctx.strokeStyle = isErase ? "rgba(255,90,90,0.95)" : "rgba(255,255,255,0.95)";
             fxctx.beginPath();
             fxctx.moveTo(lassoPts[0].x, lassoPts[0].y);
@@ -4838,363 +2945,10 @@
             lassoPts = [];
             clearFx();
         }
-        function startPan(e) {
-            isPanning = true;
-            const pos = getCanvasPointer(e);
-            panStart = {
-                x: pos.x * dpr,
-                y: pos.y * dpr,
-                ox: offsetX,
-                oy: offsetY
-            };
-        }
-        function continuePan(e) {
-            if (!isPanning) return;
-            const pos = getCanvasPointer(e);
-            const dx = pos.x * dpr - panStart.x;
-            const dy = pos.y * dpr - panStart.y;
-            offsetX = panStart.ox + dx;
-            offsetY = panStart.oy + dy;
-            renderAll();
-            updateHUD();
-            updatePlayheadMarker();
-            updateClipMarkers();
-            clearFx();
-        }
-        function endPan() {
-            isPanning = false;
-        }
-        function startStroke(e) {
-            const pos = getCanvasPointer(e);
-            let {x: x, y: y} = screenToContent(pos.x, pos.y);
-            notePenDetected(e);
-            stabilizedPt = null;
-            const startPt = stabilizePoint(e, x, y);
-            x = startPt.x;
-            y = startPt.y;
-            if (x < 0 || y < 0 || x > contentW || y > contentH) return;
-            if (e.button === 2) {
-                startPan(e);
-                return;
-            }
-            if (tool === "eyedropper") {
-                pickCanvasColorAtEvent(e);
-                return;
-            }
-            if (tool === "rect-select") {
-                isDrawing = true;
-                beginRectSelect(e);
-                return;
-            }
-            if (tool === "lasso-fill") {
-                lassoActive = true;
-                isDrawing = true;
-                lassoPts = [];
-                addLassoPoint({
-                    x: x,
-                    y: y
-                });
-                drawLassoPreview();
-                return;
-            }
-            try {
-                const k = tool === "eraser" ? resolveKeyFor(activeLayer, activeSubColor?.[activeLayer] ?? currentColor) : resolveKeyFor(activeLayer, currentColor);
-                beginGlobalHistoryStep(activeLayer, currentFrame, k);
-            } catch {}
-            if (tool === "lasso-erase") {
-                if (activeLayer === PAPER_LAYER) return;
-                lassoActive = true;
-                isDrawing = true;
-                lassoPts = [];
-                addLassoPoint({
-                    x: x,
-                    y: y
-                });
-                drawLassoPreview("erase");
-                return;
-            }
-            if (tool === "fill-eraser" || tool === "fill-brush") {
-                if (activeLayer === PAPER_LAYER) return;
-                if (tool === "fill-eraser" && activeLayer !== LAYER.FILL) {
-                    if (Array.isArray(activeSubColor) && !activeSubColor[activeLayer]) {
-                        const lay = layers?.[activeLayer];
-                        const fallback = lay?.suborder?.slice().reverse().find(k => lay?.sublayers?.has?.(k)) || lay?.suborder?.[0] || null;
-                        if (fallback) activeSubColor[activeLayer] = fallback;
-                    }
-                }
-                let key = fillKeyForTool(activeLayer, tool);
-                if (tool === "fill-brush" && key) key = swatchColorKey(key);
-                if (tool === "fill-brush" && activeLayer === LAYER.FILL) {
-                    activeSubColor[LAYER.FILL] = key;
-                    ensureSublayer(LAYER.FILL, key);
-                    try {
-                        renderLayerSwatches(LAYER.FILL);
-                    } catch {}
-                }
-                if (tool === "fill-brush" && !key) return;
-                if (tool === "fill-eraser") key = key || null;
-                if (tool === "fill-brush") ensureActiveSwatchForColorLayer(activeLayer, key);
-                if (tool === "fill-brush") pushUndo(activeLayer, currentFrame, key);
-                isDrawing = true;
-                if (tool === "fill-eraser") _fillEraseAllLayers = !!e.shiftKey;
-                lastPt = {
-                    x: x,
-                    y: y
-                };
-                trailPoints = [ {
-                    x: x,
-                    y: y
-                } ];
-                fxTransform();
-                fxStamp1px(x, y, x + .01, y + .01);
-                return;
-            }
-            if (tool === "hand") {
-                startPan(e);
-                return;
-            }
-            if (activeLayer === PAPER_LAYER) {
-                return;
-            }
-            isDrawing = true;
-            const hex = tool === "eraser" ? activeSubColor?.[activeLayer] || colorToHex(currentColor) : colorToHex(currentColor);
-            strokeHex = activeLayer === LAYER.FILL ? fillWhite : hex;
-            activeSubColor[activeLayer] = strokeHex;
-            ensureSublayer(activeLayer, strokeHex);
-            renderLayerSwatches(activeLayer);
-            beginGlobalHistoryStep(activeLayer, currentFrame, strokeHex);
-            pushUndo(activeLayer, currentFrame, strokeHex);
-            lastPt = {
-                x: x,
-                y: y
-            };
-            const off = getFrameCanvas(activeLayer, currentFrame, strokeHex);
-            const ctx = off.getContext("2d");
-            const p = pressure(e);
-            const t = usePressureTilt ? tiltAmount(e) : 0;
-            markGlobalHistoryDirty();
-            markGlobalHistoryDirty();
-            if (tool === "brush") {
-                const pressureSize = usePressureSize ? brushSize * p : brushSize;
-                const size = e?.pointerType === "pen" && usePressureTilt ? pressureSize * (1 + t * .75) : pressureSize;
-                const alpha = usePressureOpacity ? p : 1;
-                const brushRenderSettings = mergeBrushSettings(brushSettings, {
-                    size: size
-                });
-                stampLine(ctx, x, y, x + .01, y + .01, brushRenderSettings, currentColor, alpha, "source-over");
-            } else if (tool === "eraser") {
-                const eraserTilt = e?.pointerType === "pen" && usePressureTilt ? 1 + t * .75 : 1;
-                const eraserRenderSettings = mergeBrushSettings(eraserSettings, {
-                    size: eraserSize * eraserTilt
-                });
-                stampLine(ctx, x, y, x + .01, y + .01, eraserRenderSettings, "#ffffff", 1, "destination-out");
-            }
-            markFrameHasContent(activeLayer, currentFrame, strokeHex || hex);
-            renderAll();
-            updateTimelineHasContent(currentFrame);
-        }
-        function continueStroke(e) {
-            if (!isDrawing) return;
-            const pos = getCanvasPointer(e);
-            let {x: x, y: y} = screenToContent(pos.x, pos.y);
-            notePenDetected(e);
-            const movePt = stabilizePoint(e, x, y);
-            x = movePt.x;
-            y = movePt.y;
-            if (!lastPt) lastPt = {
-                x: x,
-                y: y
-            };
-            if (tool === "rect-select") {
-                updateRectSelect(e);
-                lastPt = {
-                    x: x,
-                    y: y
-                };
-                return;
-            }
-            if (tool === "fill-eraser" || tool === "fill-brush") {
-                fxTransform();
-                fxStamp1px(lastPt.x, lastPt.y, x, y);
-                if (!trailPoints.length || Math.hypot(x - lastPt.x, y - lastPt.y) > 4) trailPoints.push({
-                    x: x,
-                    y: y
-                });
-                lastPt = {
-                    x: x,
-                    y: y
-                };
-                return;
-            }
-            if ((tool === "lasso-fill" || tool === "lasso-erase") && lassoActive) {
-                addLassoPoint({
-                    x: x,
-                    y: y
-                });
-                drawLassoPreview(tool === "lasso-erase" ? "erase" : "fill");
-                lastPt = {
-                    x: x,
-                    y: y
-                };
-                return;
-            }
-            function syncActiveLayerSwatchGreen() {
-                document.querySelectorAll(".layerSwatchBtn.activeOnActiveLayer").forEach(b => b.classList.remove("activeOnActiveLayer"));
-                const L = activeLayer;
-                const key = activeSubColor?.[L];
-                if (L == null || !key) return;
-                const btns = document.querySelectorAll(".layerSwatchBtn");
-                for (const b of btns) {
-                    const bl = Number(b.dataset.layerId);
-                    const bk = String(b.dataset.key || "");
-                    if (bl === L && bk === key) {
-                        b.classList.add("activeOnActiveLayer");
-                        break;
-                    }
-                }
-            }
-            const hex = strokeHex || (activeSubColor?.[activeLayer] ?? colorToHex(currentColor));
-            const off = getFrameCanvas(activeLayer, currentFrame, hex);
-            const ctx = off.getContext("2d");
-            const p = pressure(e);
-            const t = usePressureTilt ? tiltAmount(e) : 0;
-            markGlobalHistoryDirty();
-            if (tool === "brush") {
-                const pressureSize = usePressureSize ? brushSize * p : brushSize;
-                const size = e?.pointerType === "pen" && usePressureTilt ? pressureSize * (1 + t * .75) : pressureSize;
-                const alpha = usePressureOpacity ? p : 1;
-                const brushRenderSettings = mergeBrushSettings(brushSettings, {
-                    size: size
-                });
-                stampLine(ctx, lastPt.x, lastPt.y, x, y, brushRenderSettings, currentColor, alpha, "source-over");
-            } else if (tool === "eraser") {
-                const eraserTilt = e?.pointerType === "pen" && usePressureTilt ? 1 + t * .75 : 1;
-                const eraserRenderSettings = mergeBrushSettings(eraserSettings, {
-                    size: eraserSize * eraserTilt
-                });
-                stampLine(ctx, lastPt.x, lastPt.y, x, y, eraserRenderSettings, "#ffffff", 1, "destination-out");
-            }
-            lastPt = {
-                x: x,
-                y: y
-            };
-            markFrameHasContent(activeLayer, currentFrame, strokeHex || hex);
-            renderAll();
-            updateTimelineHasContent(currentFrame);
-        }
-        function endStrokeMobileSafe(e) {
-            if (typeof _touchGestureActive !== "undefined" && _touchGestureActive) {
-                try {
-                    cancelLasso?.();
-                } catch {}
-                try {
-                    clearFx?.();
-                } catch {}
-                try {
-                    isDrawing = false;
-                } catch {}
-                try {
-                    lastPt = null;
-                } catch {}
-                try {
-                    stabilizedPt = null;
-                } catch {}
-                try {
-                    trailPoints = [];
-                } catch {}
-                try {
-                    _fillEraseAllLayers = false;
-                } catch {}
-                return;
-            }
-            const F = typeof currentFrame === "number" ? currentFrame : 0;
-            try {
-                if (typeof isPanning !== "undefined" && isPanning) endPan();
-            } catch {}
-            if ((tool === "lasso-fill" || tool === "lasso-erase") && typeof lassoActive !== "undefined" && lassoActive) {
-                try {
-                    if (tool === "lasso-fill") applyLassoFill(); else applyLassoErase();
-                } catch (err) {
-                    console.warn("[celstomp] lasso commit failed", err);
-                }
-                try {
-                    cancelLasso();
-                } catch {}
-                try {
-                    isDrawing = false;
-                } catch {}
-                try {
-                    lastPt = null;
-                } catch {}
-                try {
-                    stabilizedPt = null;
-                } catch {}
-                return;
-            }
-            if (tool === "rect-select") {
-                try {
-                    endRectSelect();
-                } catch {}
-                try {
-                    isDrawing = false;
-                } catch {}
-                try {
-                    lastPt = null;
-                } catch {}
-                try {
-                    stabilizedPt = null;
-                } catch {}
-                return;
-            }
-            if (tool === "fill-brush" || tool === "fill-eraser") {
-                const seeds = Array.isArray(trailPoints) && trailPoints.length ? trailPoints : lastPt ? [ lastPt ] : [];
-                if (seeds.length) {
-                    try {
-                        if (tool === "fill-brush") {
-                            applyFillRegionsFromSeeds(F, seeds, activeLayer);
-                        } else {
-                            const L = _fillEraseAllLayers ? -1 : activeLayer;
-                            eraseFillRegionsFromSeeds(L, F, seeds, seeds);
-                        }
-                    } catch (err) {
-                        console.warn("[celstomp] fill commit failed", err);
-                    }
-                }
-                try {
-                    clearFx();
-                } catch {}
-                trailPoints = [];
-                lastPt = null;
-                stabilizedPt = null;
-                _fillEraseAllLayers = false;
-                isDrawing = false;
-                try {
-                    endGlobalHistoryStep?.();
-                } catch {}
-                return;
-            }
-            try {
-                isDrawing = false;
-            } catch {}
-            try {
-                lastPt = null;
-            } catch {}
-            try {
-                stabilizedPt = null;
-            } catch {}
-            try {
-                trailPoints = [];
-            } catch {}
-            try {
-                _fillEraseAllLayers = false;
-            } catch {}
-            try {
-                clearFx?.();
-            } catch {}
-            try {
-                endGlobalHistoryStep?.();
-            } catch {}
-        }
+
+        
+          
+          
         function recomputeHasContent(L, F, key) {
             try {
                 const k = resolveKeyFor(L, key);
@@ -5217,433 +2971,7 @@
                 return true;
             }
         }
-        let _swatchCtxMenu = null;
-        let _swatchCtxState = null;
-        let _swatchColorPicker = null;
-        function isHexColor(s) {
-            return typeof s === "string" && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim());
-        }
-        function normHex6(hex) {
-            hex = String(hex || "").trim();
-            if (!isHexColor(hex)) return null;
-            if (hex.length === 4) {
-                const r = hex[1], g = hex[2], b = hex[3];
-                hex = `#${r}${r}${g}${g}${b}${b}`;
-            }
-            return hex.toUpperCase();
-        }
-        function swatchHexToRgb(hex) {
-            hex = normHex6(hex);
-            if (!hex) return null;
-            const n = parseInt(hex.slice(1), 16);
-            return {
-                r: n >> 16 & 255,
-                g: n >> 8 & 255,
-                b: n & 255
-            };
-        }
-        function extractCanvas(v) {
-            if (!v) return null;
-            if (v instanceof HTMLCanvasElement) return v;
-            if (v.canvas instanceof HTMLCanvasElement) return v.canvas;
-            if (v.ctx && v.ctx.canvas instanceof HTMLCanvasElement) return v.ctx.canvas;
-            return null;
-        }
-        function iterContainerValues(container, fn) {
-            if (!container) return;
-            if (container instanceof Map) {
-                for (const v of container.values()) fn(v);
-                return;
-            }
-            if (Array.isArray(container)) {
-                for (const v of container) fn(v);
-                return;
-            }
-            if (typeof container === "object") {
-                for (const k of Object.keys(container)) fn(container[k]);
-            }
-        }
-        function getSwatchCollection(L) {
-            return L?.swatches || L?.sublayers || L?.subLayers || L?.colors || L?.colorSwatches || null;
-        }
-        function getSwatchObj(L, key) {
-            const col = getSwatchCollection(L);
-            if (!col) return null;
-            if (col instanceof Map) return col.get(key) ?? null;
-            if (typeof col === "object") return col[key] ?? null;
-            return null;
-        }
-        function setSwatchObjKeyIfNeeded(layer, oldKey, newKey) {
-            const col = getSwatchCollection(layer);
-            if (!col) return oldKey;
-            const isColorKeyMode = isHexColor(oldKey) && (col instanceof Map && col.has(oldKey) || !(col instanceof Map) && typeof col === "object" && Object.prototype.hasOwnProperty.call(col, oldKey));
-            if (!isColorKeyMode) return oldKey;
-            if (col instanceof Map) {
-                if (col.has(newKey)) {
-                    alert("That swatch color already exists. Pick a different color.");
-                    return oldKey;
-                }
-            } else {
-                if (Object.prototype.hasOwnProperty.call(col, newKey)) {
-                    alert("That swatch color already exists. Pick a different color.");
-                    return oldKey;
-                }
-            }
-            let sw = null;
-            if (col instanceof Map) {
-                sw = col.get(oldKey);
-                col.delete(oldKey);
-                col.set(newKey, sw);
-            } else {
-                sw = col[oldKey];
-                delete col[oldKey];
-                col[newKey] = sw;
-            }
-            if (Array.isArray(layer.suborder)) {
-                for (let i = 0; i < layer.suborder.length; i++) {
-                    if (layer.suborder[i] === oldKey) layer.suborder[i] = newKey;
-                }
-            }
-            const vals = col instanceof Map ? Array.from(col.values()) : Object.values(col);
-            for (const s of vals) {
-                if (!s) continue;
-                if (s.parentKey === oldKey) s.parentKey = newKey;
-                if (Array.isArray(s.children)) {
-                    for (let i = 0; i < s.children.length; i++) {
-                        if (s.children[i] === oldKey) s.children[i] = newKey;
-                    }
-                }
-            }
-            return newKey;
-        }
-        function setSwatchHex(L, key, newHex) {
-            const sw = getSwatchObj(L, key);
-            if (!sw) return;
-            if ("hex" in sw) sw.hex = newHex;
-            if ("color" in sw) sw.color = newHex;
-            if ("col" in sw) sw.col = newHex;
-            return setSwatchObjKeyIfNeeded(L, key, newHex);
-        }
-        function collectCanvasesForLayerSwatch(L, key) {
-            const out = [];
-            const seen = new Set;
-            function pushCanvas(c) {
-                if (!c) return;
-                if (seen.has(c)) return;
-                seen.add(c);
-                out.push(c);
-            }
-            const sw = getSwatchObj(L, key);
-            if (sw) {
-                pushCanvas(extractCanvas(sw));
-                iterContainerValues(sw.cels, v => pushCanvas(extractCanvas(v) || extractCanvas(v?.canvas) || extractCanvas(v?.ctx)));
-                iterContainerValues(sw.frames, v => pushCanvas(extractCanvas(v) || extractCanvas(v?.canvas) || extractCanvas(v?.ctx)));
-                iterContainerValues(sw.cells, v => pushCanvas(extractCanvas(v) || extractCanvas(v?.canvas) || extractCanvas(v?.ctx)));
-                iterContainerValues(sw.cels, v => pushCanvas(extractCanvas(v?.canvas)));
-                iterContainerValues(sw.frames, v => pushCanvas(extractCanvas(v?.canvas)));
-                iterContainerValues(sw.cells, v => pushCanvas(extractCanvas(v?.canvas)));
-            }
-            const layerContainers = [ L?.cels, L?.frames, L?.cells, L?.celByFrame, L?.frameMap ];
-            for (const cont of layerContainers) {
-                iterContainerValues(cont, celEntry => {
-                    if (!celEntry) return;
-                    const a = celEntry.swatches || celEntry.sublayers || celEntry.subLayers || celEntry.colors || null;
-                    if (a) {
-                        if (a instanceof Map) {
-                            pushCanvas(extractCanvas(a.get(key)));
-                        } else if (typeof a === "object") {
-                            pushCanvas(extractCanvas(a[key]));
-                        }
-                    }
-                    if (typeof celEntry === "object" && key in celEntry) {
-                        pushCanvas(extractCanvas(celEntry[key]));
-                    }
-                    pushCanvas(extractCanvas(celEntry));
-                    pushCanvas(extractCanvas(celEntry?.canvas));
-                    pushCanvas(extractCanvas(celEntry?.ctx));
-                });
-            }
-            return out;
-        }
-        function recolorCanvasAllNonTransparent(canvas, rgb) {
-            const w = canvas.width | 0, h = canvas.height | 0;
-            if (!w || !h) return;
-            const ctx = canvas.getContext("2d", {
-                willReadFrequently: true
-            });
-            if (!ctx) return;
-            const img = ctx.getImageData(0, 0, w, h);
-            const d = img.data;
-            for (let i = 0; i < d.length; i += 4) {
-                const a = d[i + 3];
-                if (a === 0) continue;
-                d[i] = rgb.r;
-                d[i + 1] = rgb.g;
-                d[i + 2] = rgb.b;
-            }
-            ctx.putImageData(img, 0, 0);
-        }
-        async function applySwatchRecolor(layerId, key, newHex) {
-            const L = layers?.[layerId];
-            if (!L) return;
-            newHex = normHex6(newHex);
-            if (!newHex) return;
-            const rgb = swatchHexToRgb(newHex);
-            if (!rgb) return;
-            const canvases = collectCanvasesForLayerSwatch(L, key);
-            for (let i = 0; i < canvases.length; i++) {
-                recolorCanvasAllNonTransparent(canvases[i], rgb);
-                if (i % 2 === 1) await sleep(0);
-            }
-            const newKey = setSwatchHex(L, key, newHex) || key;
-            try {
-                if (activeSubColor?.[layerId] === key) activeSubColor[layerId] = newKey;
-                if (currentColor === key) currentColor = newKey;
-            } catch {}
-            try {
-                if (L?.activeSwatchKey === key) L.activeSwatchKey = newKey;
-                if (L?.selectedSwatchKey === key) L.selectedSwatchKey = newKey;
-                if (typeof state === "object" && state) {
-                    if (state.activeSwatchKey === key) state.activeSwatchKey = newKey;
-                    if (state.activeColorKey === key) state.activeColorKey = newKey;
-                    if (state.activeSwatchKeyByLayer && L?.id && state.activeSwatchKeyByLayer[L.id] === key) state.activeSwatchKeyByLayer[L.id] = newKey;
-                }
-            } catch {}
-            if (_swatchCtxState?.btn) {
-                _swatchCtxState.btn.style.background = newHex;
-                _swatchCtxState.btn.style.borderColor = newHex;
-                _swatchCtxState.btn.dataset.swatchKey = newKey;
-                _swatchCtxState.btn.dataset.hex = newHex;
-            }
-            try {
-                requestRender?.();
-            } catch {}
-            try {
-                requestRedraw?.();
-            } catch {}
-            try {
-                redraw?.();
-            } catch {}
-            try {
-                render?.();
-            } catch {}
-            try {
-                renderLayerSwatches(layerId);
-            } catch {}
-            try {
-                renderAll();
-            } catch {}
-        }
-        const _swatchPreviewJobs = new Map;
-        function _swPrevKey(layerId, key) {
-            return `${layerId}::${key}`;
-        }
-        function cancelSwatchPreview(layerId, key) {
-            const job = _swatchPreviewJobs.get(_swPrevKey(layerId, key));
-            if (!job) return;
-            job.token++;
-            job.pendingHex = null;
-        }
-        function queueSwatchRecolorPreview(layerId, key, hex) {
-            const k = _swPrevKey(layerId, key);
-            let job = _swatchPreviewJobs.get(k);
-            if (!job) {
-                job = {
-                    running: false,
-                    pendingHex: null,
-                    token: 0,
-                    canvases: null
-                };
-                _swatchPreviewJobs.set(k, job);
-            }
-            job.pendingHex = normHex6(hex);
-            job.token++;
-            if (job.running) return;
-            job.running = true;
-            (async () => {
-                while (job.pendingHex) {
-                    const nextHex = job.pendingHex;
-                    job.pendingHex = null;
-                    const myToken = job.token;
-                    await async function applyPreviewOnce() {
-                        const L = layers?.[layerId];
-                        if (!L) return;
-                        const newHex = normHex6(nextHex);
-                        if (!newHex) return;
-                        const rgb = swatchHexToRgb(newHex);
-                        if (!rgb) return;
-                        const canvases = job.canvases || (job.canvases = collectCanvasesForLayerSwatch(L, key));
-                        for (let i = 0; i < canvases.length; i++) {
-                            if (job.token !== myToken) return;
-                            recolorCanvasAllNonTransparent(canvases[i], rgb);
-                            if (i % 2 === 1) await sleep(0);
-                        }
-                        if (_swatchCtxState?.btn) {
-                            _swatchCtxState.btn.style.background = newHex;
-                            _swatchCtxState.btn.style.borderColor = newHex;
-                            _swatchCtxState.btn.dataset.hex = newHex;
-                        }
-                        try {
-                            requestRender?.();
-                        } catch {}
-                        try {
-                            requestRedraw?.();
-                        } catch {}
-                        try {
-                            redraw?.();
-                        } catch {}
-                        try {
-                            render?.();
-                        } catch {}
-                        try {
-                            renderAll?.();
-                        } catch {}
-                    }();
-                }
-                job.running = false;
-            })();
-        }
-
-        function pickColorLiveOnce(startHex, {onLive: onLive, onCommit: onCommit, onCancel: onCancel} = {}) {
-            const inp = document.createElement("input");
-            inp.type = "color";
-            const safe = typeof startHex === "string" && /^#[0-9a-fA-F]{6}$/.test(startHex) ? startHex : "#000000";
-            inp.value = safe;
-            inp.style.position = "fixed";
-            inp.style.left = "-9999px";
-            inp.style.top = "0";
-            inp.style.opacity = "0";
-            inp.style.pointerEvents = "none";
-            document.body.appendChild(inp);
-            let committed = false;
-            const start = inp.value;
-            const safeLive = hex => {
-                try {
-                    onLive?.(hex);
-                } catch {}
-            };
-            const safeCommit = hex => {
-                try {
-                    (onCommit || onLive)?.(hex);
-                } catch {}
-            };
-            const safeCancel = () => {
-                try {
-                    onCancel?.();
-                } catch {}
-            };
-            const cleanup = () => {
-                inp.removeEventListener("input", onInput);
-                inp.removeEventListener("change", onChange);
-                window.removeEventListener("focus", onWinFocus, true);
-                if (inp && inp.parentNode) inp.parentNode.removeChild(inp);
-            };
-            const onInput = e => {
-                const hex = e?.target?.value;
-                if (hex) safeLive(hex);
-            };
-            const onChange = e => {
-                committed = true;
-                const hex = e?.target?.value || inp.value || start;
-                safeCommit(hex);
-                cleanup();
-            };
-            const onWinFocus = () => {
-                setTimeout(() => {
-                    if (committed) return;
-                    const v = inp.value || start;
-                    if (v === start) safeCancel(); else safeCommit(v);
-                    cleanup();
-                }, 0);
-            };
-            inp.addEventListener("input", onInput);
-            inp.addEventListener("change", onChange);
-            window.addEventListener("focus", onWinFocus, true);
-            try {
-                inp.showPicker?.();
-            } catch {}
-            inp.click();
-        }
-
-        function ensureSwatchCtxMenu() {
-            if (_swatchCtxMenu) return _swatchCtxMenu;
-            const m = document.createElement("div");
-            m.id = "swatchCtxMenu";
-            m.hidden = true;
-            m.innerHTML = `\n        <button type="button" data-act="change">Change color…</button>\n      `;
-            m.addEventListener("click", e => {
-                const btn = e.target.closest("button[data-act]");
-                if (!btn) return;
-                const act = btn.dataset.act;
-                const st = _swatchCtxState;
-                closeSwatchContextMenu();
-                if (!st) return;
-                if (act === "change") {
-                    let curHex = null;
-                    const sw = getSwatchObj(st.layerObj, st.key);
-                    curHex = normHex6(sw?.hex || sw?.color || sw?.col || (isHexColor(st.key) ? st.key : null)) || "#FFFFFF";
-                    const startHex = curHex;
-                    pickColorLiveOnce(startHex, {
-                        onLive: hex => {
-                            queueSwatchRecolorPreview(st.layerId, st.key, hex);
-                        },
-                        onCommit: hex => {
-                            cancelSwatchPreview(st.layerId, st.key);
-                            applySwatchRecolor(st.layerId, st.key, hex);
-                        },
-                        onCancel: () => {
-                            cancelSwatchPreview(st.layerId, st.key);
-                            queueSwatchRecolorPreview(st.layerId, st.key, startHex);
-                        }
-                    });
-                }
-            });
-            document.addEventListener("mousedown", e => {
-                if (!_swatchCtxMenu || _swatchCtxMenu.hidden) return;
-                if (e.target === _swatchCtxMenu || _swatchCtxMenu.contains(e.target)) return;
-                closeSwatchContextMenu();
-            }, true);
-            document.addEventListener("keydown", e => {
-                if (e.key === "Escape") closeSwatchContextMenu();
-            });
-            window.addEventListener("blur", closeSwatchContextMenu);
-            document.body.appendChild(m);
-            _swatchCtxMenu = m;
-            return m;
-        }
-        function openSwatchContextMenu(L, key, ev) {
-            try {
-                ev.preventDefault();
-            } catch {}
-            try {
-                ev.stopPropagation();
-            } catch {}
-            const layerId = Number(L);
-            const layerObj = Number.isFinite(layerId) ? layers?.[layerId] : L;
-            const m = ensureSwatchCtxMenu();
-            _swatchCtxState = {
-                layerId: layerId,
-                layerObj: layerObj,
-                key: key,
-                btn: ev.currentTarget || null
-            };
-            m.hidden = false;
-            m.style.left = "0px";
-            m.style.top = "0px";
-            const pad = 6;
-            const vw = window.innerWidth, vh = window.innerHeight;
-            const r = m.getBoundingClientRect();
-            let x = ev.clientX + 6;
-            let y = ev.clientY + 6;
-            if (x + r.width + pad > vw) x = Math.max(pad, vw - r.width - pad);
-            if (y + r.height + pad > vh) y = Math.max(pad, vh - r.height - pad);
-            m.style.left = `${x}px`;
-            m.style.top = `${y}px`;
-        }
-        function closeSwatchContextMenu() {
-            if (_swatchCtxMenu) _swatchCtxMenu.hidden = true;
-            _swatchCtxState = null;
-        }
+        
         function _canvasHasAnyAlpha(c) {
             try {
                 const ctx = c.getContext("2d", {
@@ -5703,9 +3031,6 @@
                 if (k && layer.sublayers.has(k)) {
                     currentColor = k;
                     try {
-                        setPickerToColorString?.(k);
-                    } catch {}
-                    try {
                         setColorSwatch?.();
                     } catch {}
                     try {
@@ -5747,83 +3072,7 @@
             pruneUnusedSublayers(L);
             return true;
         }
-        function endStroke() {
-            if (!isDrawing) return;
-            isDrawing = false;
-            commitGlobalHistoryStep();
-            const endKey = strokeHex;
-            strokeHex = null;
-            renderAll();
-            updateTimelineHasContent(currentFrame);
-            if (tool === "rect-select") {
-                endRectSelect();
-                lastPt = null;
-                stabilizedPt = null;
-                return;
-            }
-            if (tool === "lasso-erase" && lassoActive) {
-                lassoActive = false;
-                applyLassoErase();
-                cancelLasso();
-                lastPt = null;
-                stabilizedPt = null;
-                return;
-            }
-            try {
-                commitGlobalHistoryStep();
-            } catch {}
-            if (tool === "lasso-fill" && lassoActive) {
-                lassoActive = false;
-                applyLassoFill();
-                cancelLasso();
-                lastPt = null;
-                stabilizedPt = null;
-                return;
-            }
-            if (tool === "eraser" && activeLayer !== PAPER_LAYER) {
-                recomputeHasContent(activeLayer, currentFrame, endKey || activeSubColor?.[activeLayer] || currentColor);
-                if (tool === "eraser" && activeLayer !== PAPER_LAYER) {
-                    recomputeHasContent(activeLayer, currentFrame, endKey || activeSubColor?.[activeLayer] || currentColor);
-                    updateTimelineHasContent(currentFrame);
-                    pruneUnusedSublayers(activeLayer);
-                }
-                updateTimelineHasContent(currentFrame);
-            }
-            if (tool === "fill-brush") {
-                const seeds = trailPoints.length ? trailPoints : lastPt ? [ lastPt ] : [];
-                if (seeds.length) applyFillRegionsFromSeeds(currentFrame, seeds, activeLayer);
-                clearFx();
-                trailPoints = [];
-                lastPt = null;
-                stabilizedPt = null;
-                return;
-            }
-            if (tool === "fill-eraser") {
-                if (activeLayer === PAPER_LAYER) {
-                    clearFx();
-                    trailPoints = [];
-                    lastPt = null;
-                    stabilizedPt = null;
-                    return;
-                }
-                const strokePts = trailPoints.length ? trailPoints : lastPt ? [ lastPt ] : [];
-                if (strokePts.length) eraseFillRegionsFromSeeds(activeLayer, currentFrame, strokePts);
-                clearFx();
-                trailPoints = [];
-                lastPt = null;
-                stabilizedPt = null;
-                return;
-            }
-            if (autofill && activeLayer === LAYER.LINE && tool === "brush") {
-                pushUndo(LAYER.FILL, currentFrame);
-                beginGlobalHistoryStep(LAYER.FILL, currentFrame, fillWhite);
-                const filled = fillFromLineart(currentFrame);
-                if (filled) markGlobalHistoryDirty();
-                commitGlobalHistoryStep();
-            }
-            lastPt = null;
-            stabilizedPt = null;
-        }
+        
         function initStagePinchCameraZoom(stageViewport) {
             if (!stageViewport || stageViewport._pinchCamWired) return;
             stageViewport._pinchCamWired = true;
@@ -5860,13 +3109,13 @@
                 const before = screenToContent(midLocal.x, midLocal.y);
                 const startDist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
                 pinch = {
-                    startZoom: zoom,
-                    startOffsetX: offsetX,
-                    startOffsetY: offsetY,
+                    startZoom: getZoom(),
+                    startOffsetX: getOffsetX(),
+                    startOffsetY: getOffsetY(),
                     startDist: startDist,
                     anchorContent: before
                 };
-                window.__celstompPinching = true;
+                
                 for (const pid of touches.keys()) {
                     try {
                         stageViewport.setPointerCapture(pid);
@@ -5884,10 +3133,11 @@
                     y: (a.y + b.y) / 2
                 };
                 const midLocal = clientToCanvasLocal(mid.x, mid.y);
-                zoom = clampNum(pinch.startZoom * factor, VIEW_MIN, VIEW_MAX);
+                const zl = clampNum(pinch.startZoom * factor, VIEW_MIN, VIEW_MAX);
+                setZoom(zl)
                 const after = screenToContent(midLocal.x, midLocal.y);
-                offsetX = pinch.startOffsetX + (after.x - pinch.anchorContent.x) * (zoom * dpr);
-                offsetY = pinch.startOffsetY + (after.y - pinch.anchorContent.y) * (zoom * dpr);
+                setOffsetX(pinch.startOffsetX + (after.x - pinch.anchorContent.x) * (getZoom() * dpr));
+                setOffsetY(pinch.startOffsetY + (after.y - pinch.anchorContent.y) * (getZoom() * dpr));
                 renderAll();
                 updateHUD();
                 updatePlayheadMarker();
@@ -5948,88 +3198,17 @@
                 passive: false
             });
         }
-        const activePointers = new Map;
+        
         let pinch = null;
-        function handlePointerDown(e) {
-            if (e.pointerType === "touch" && window.__celstompPinching) return;
-            if ((e.ctrlKey || e.metaKey) && e.pointerType !== "touch") {
-                if (beginCtrlMove(e)) {
-                    e.preventDefault();
-                    return;
-                }
-            }
-            try {
-                drawCanvas.setPointerCapture(e.pointerId);
-            } catch {}
-            activePointers.set(e.pointerId, {
-                x: e.clientX,
-                y: e.clientY,
-                type: e.pointerType
-            });
-            if (e.pointerType === "pen") {
-                startStroke(e);
-                return;
-            }
-            if (e.pointerType === "touch") {
-                if (window.__celstompPinching) {
-                    e.preventDefault();
-                    return;
-                }
-                if (tool === "hand") startPan(e); else startStroke(e);
-                e.preventDefault();
-                return;
-            }
-            if (e.button === 2 || tool === "hand") startPan(e); else startStroke(e);
-        }
-        function handlePointerMove(e) {
-            if (e.pointerType === "touch") e.preventDefault();
-            if (e.pointerType === "touch" && window.__celstompPinching) return;
-            if (e.pointerType === "touch") {
-                if (window.__celstompPinching && activePointers.size < 2) {
-                    window.__celstompPinching = false;
-                }
-            }
-            if (e.pointerType === "touch" && window.__celstompPinching) return;
-            if (_ctrlMove.active && e.pointerId === _ctrlMove.pointerId) {
-                updateCtrlMove(e);
-                e.preventDefault();
-                return;
-            }
-            if (isPanning) {
-                continuePan(e);
-                return;
-            }
-            if (isDrawing) {
-                continueStroke(e);
-                return;
-            }
-        }
-        function handlePointerUp(e) {
-            if (e.pointerType === "touch") e.preventDefault();
-            if (_ctrlMove.active && e.pointerId === _ctrlMove.pointerId) {
-                endCtrlMove(e);
-                e.preventDefault();
-                return;
-            }
-            try {
-                drawCanvas.releasePointerCapture(e.pointerId);
-            } catch {}
-            pressureCache.delete(e.pointerId);
-            tiltCache.delete(e.pointerId);
-            activePointers.delete(e.pointerId);
-            if (activePointers.size < 2) window.__celstompPinching = false;
-            if (isDrawing) endStroke();
-            if (isPanning) endPan();
-        }
         drawCanvas.addEventListener("wheel", e => {
             e.preventDefault();
             const factor = Math.exp(-e.deltaY * .0015);
             const pos = getCanvasPointer(e);
             const before = screenToContent(pos.x, pos.y);
-            zoom = clamp(zoom * factor, .05, 16);
+            setZoom(clamp(getZoom() * factor, .05, 16));
             const after = screenToContent(pos.x, pos.y);
-            offsetX += (after.x - before.x) * (zoom * dpr);
-            offsetY += (after.y - before.y) * (zoom * dpr);
+            setOffsetX(getOffsetX() + (after.x - before.x) * (getZoom() * dpr));
+            setOffsetY(getOffsetY() + (after.y - before.y) * (getZoom() * dpr));
             renderAll();
             updateHUD();
             updatePlayheadMarker();
@@ -6044,6 +3223,7 @@
             try {
                 drawCanvas.style.touchAction = "none";
             } catch {}
+
             drawCanvas.addEventListener("pointerdown", handlePointerDown, {
                 passive: false
             });
@@ -6099,220 +3279,8 @@
             e?.preventDefault?.();
             return;
         }
-        function cloneCanvasDeep(src) {
-            if (!src) return null;
-            const c = document.createElement("canvas");
-            c.width = src.width || contentW;
-            c.height = src.height || contentH;
-            const ctx = c.getContext("2d");
-            ctx.drawImage(src, 0, 0);
-            c._hasContent = !!src._hasContent;
-            return c;
-        }
-        function captureFrameBundle(F) {
-            const bundle = new Array(LAYERS_COUNT);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const layer = layers[L];
-                const m = new Map;
-                if (layer?.sublayers && layer?.suborder) {
-                    for (const key of layer.suborder) {
-                        const sub = layer.sublayers.get(key);
-                        const c = sub?.frames?.[F];
-                        if (c && c._hasContent) m.set(key, c);
-                    }
-                }
-                bundle[L] = m;
-            }
-            return bundle;
-        }
-        function cloneFrameBundleDeep(bundle) {
-            const out = new Array(LAYERS_COUNT);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const src = bundle[L];
-                const dst = new Map;
-                if (src && src.size) {
-                    for (const [key, c] of src) dst.set(key, cloneCanvasDeep(c));
-                }
-                out[L] = dst;
-            }
-            return out;
-        }
-        function pasteFrameBundle(F, bundle) {
-            clearFrameAllLayers(F);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const m = bundle[L];
-                if (!m || !m.size) continue;
-                for (const [key, c] of m) {
-                    const sub = ensureSublayer(L, key);
-                    sub.frames[F] = c;
-                }
-            }
-        }
-        function moveFrameAllLayers(fromF, toF) {
-            if (fromF === toF) return;
-            clearFrameAllLayers(toF);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const layer = layers[L];
-                if (!layer?.sublayers || !layer?.suborder) continue;
-                for (const key of layer.suborder) {
-                    const sub = layer.sublayers.get(key);
-                    if (!sub?.frames) continue;
-                    const c = sub.frames[fromF];
-                    if (c) sub.frames[toF] = c;
-                    sub.frames[fromF] = null;
-                }
-            }
-        }
-        function duplicateCelFrames(srcF, dstF) {
-            if (srcF < 0 || dstF < 0 || srcF === dstF) return false;
-            if (!hasCel(srcF)) return false;
-            const srcBundle = captureFrameBundle(srcF);
-            const copy = cloneFrameBundleDeep(srcBundle);
-            pasteFrameBundle(dstF, copy);
-            renderAll();
-            if (hasTimeline) buildTimeline();
-            gotoFrame(dstF);
-            try {
-                setSingleSelection(dstF);
-            } catch {}
-            return true;
-        }
-        function onDuplicateCel() {
-            const F = currentFrame;
-            if (hasCel(F)) {
-                const nextIdx = nearestNextCelIndex(F);
-                if (nextIdx === F + 1) return;
-                const prevIdx = nearestPrevCelIndex(F);
-                const step = prevIdx >= 0 ? Math.max(1, F - prevIdx) : Math.max(1, snapFrames);
-                let dst = F + step;
-                if (dst >= totalFrames) dst = totalFrames - 1;
-                if (hasCel(dst)) return;
-                duplicateCelFrames(F, dst);
-            } else {
-                const left = nearestPrevCelIndex(F);
-                if (left < 0) return;
-                if (hasCel(F)) return;
-                duplicateCelFrames(left, F);
-            }
-        }
-        function gotoPrevCel() {
-            const p = nearestPrevCelIndex(currentFrame > 0 ? currentFrame : 0);
-            if (p >= 0) gotoFrame(p);
-        }
-        function gotoNextCel() {
-            const n = nearestNextCelIndex(currentFrame);
-            if (n >= 0) gotoFrame(n);
-        }
-        let selectedCels = new Set;
-        let selectingCels = false;
-        let selAnchor = -1;
-        let selLast = -1;
-        let ghostTargets = new Set;
-        function clearGhostTargets() {
-            if (!ghostTargets.size) return;
-            ghostTargets.clear();
-            if (hasTimeline) highlightTimelineCell();
-        }
-        function computeGhostDestsForStart(startFrame) {
-            const frames = selectedSorted();
-            if (!frames.length) return [];
-            const base = frames[0];
-            let shift = startFrame - base;
-            const minDest = frames[0] + shift;
-            const maxDest = frames[frames.length - 1] + shift;
-            if (minDest < 0) shift += -minDest;
-            if (maxDest > totalFrames - 1) shift -= maxDest - (totalFrames - 1);
-            return frames.map(f => f + shift);
-        }
-        function setGhostTargetsForStart(startFrame) {
-            const dests = computeGhostDestsForStart(startFrame);
-            ghostTargets = new Set(dests);
-            if (hasTimeline) highlightTimelineCell();
-        }
-        function setGhostTargetSingle(frame) {
-            ghostTargets = new Set([ frame ]);
-            if (hasTimeline) highlightTimelineCell();
-        }
-        let groupDragActive = false;
-        let groupDropStart = -1;
-        function selectedSorted() {
-            return Array.from(selectedCels).sort((a, b) => a - b);
-        }
-        function pruneSelection() {
-            if (!selectedCels.size) return;
-            const next = new Set;
-            for (const f of selectedCels) {
-                if (f >= 0 && f < totalFrames && hasCel(f)) next.add(f);
-            }
-            selectedCels = next;
-        }
-        function clearCelSelection() {
-            selectedCels.clear();
-            selAnchor = -1;
-            selLast = -1;
-            if (hasTimeline) highlightTimelineCell();
-        }
-        function setSingleSelection(f) {
-            selectedCels = new Set(hasCel(f) ? [ f ] : []);
-            selAnchor = f;
-            selLast = f;
-            if (hasTimeline) highlightTimelineCell();
-        }
-        function setSelectionRange(a, b) {
-            const lo = Math.min(a, b);
-            const hi = Math.max(a, b);
-            const next = new Set;
-            for (let i = lo; i <= hi; i++) {
-                if (hasCel(i)) next.add(i);
-            }
-            selectedCels = next;
-            if (hasTimeline) highlightTimelineCell();
-        }
-        function clearFrameAllLayers(F) {
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const layer = layers[L];
-                if (!layer) continue;
-                if (!layer.sublayers) layer.sublayers = new Map;
-                if (!layer.suborder) layer.suborder = [];
-                for (const key of layer.suborder) {
-                    const sub = layer.sublayers.get(key);
-                    if (sub?.frames) sub.frames[F] = null;
-                }
-            }
-        }
-        function getCelBundle(F) {
-            const bundle = new Array(LAYERS_COUNT);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const layer = layers[L];
-                const entries = [];
-                if (layer?.sublayers && layer?.suborder) {
-                    for (const key of layer.suborder) {
-                        const sub = layer.sublayers.get(key);
-                        const c = sub?.frames?.[F];
-                        if (c && c._hasContent) entries.push([ key, c ]);
-                    }
-                }
-                bundle[L] = entries;
-            }
-            return bundle;
-        }
-        function setCelBundle(F, bundle) {
-            clearFrameAllLayers(F);
-            for (let L = 0; L < LAYERS_COUNT; L++) {
-                const entries = bundle[L] || [];
-                for (const [key, canvas] of entries) {
-                    if (!canvas) continue;
-                    const sub = ensureSublayer(L, key);
-                    sub.frames[F] = canvas;
-                }
-            }
-        }
-        function moveCelBundle(fromF, toF) {
-            if (fromF === toF) return;
-            const b = getCelBundle(fromF);
-            setCelBundle(toF, b);
-            clearFrameAllLayers(fromF);
-        }
+        
+        
         function mountIslandSlots() {
             const island = document.getElementById("floatingIsland");
             const wheelSlot = document.getElementById("islandWheelSlot");
@@ -7684,9 +4652,6 @@
                         setHSVPreviewBox?.();
                     } catch {}
                     try {
-                        setPickerToColorString?.(currentColor);
-                    } catch {}
-                    try {
                         centerView?.();
                     } catch {}
                     try {
@@ -7920,20 +4885,8 @@
             }
             function applyScrubFrame(frame) {
                 frame = Math.max(0, frame | 0);
-                if (typeof window.setCurrentFrame === "function") {
-                    window.setCurrentFrame(frame);
-                    return;
-                }
-                if (typeof window.setPlayheadFrame === "function") {
-                    window.setPlayheadFrame(frame);
-                    return;
-                }
                 if (typeof window.gotoFrame === "function") {
                     window.gotoFrame(frame);
-                    return;
-                }
-                if (typeof window.setFrame === "function") {
-                    window.setFrame(frame);
                     return;
                 }
                 if (window.state && typeof window.state === "object") {
@@ -8135,7 +5088,7 @@
                 pinch = {
                     ids: ids,
                     startDist: startDist,
-                    startZoom: zoom,
+                    startZoom: getZoom(),
                     anchorContent: anchorContent
                 };
                 window.__celstompPinching = true;
@@ -8153,11 +5106,13 @@
                     y: (a.y + b.y) / 2
                 };
                 const midLocal = clientToCanvasLocal(mid.x, mid.y);
-                zoom = nextZoom;
+                setZoom(nextZoom);
                 const devX = midLocal.x * dpr;
                 const devY = midLocal.y * dpr;
-                offsetX = devX - pinch.anchorContent.x * (zoom * dpr);
-                offsetY = devY - pinch.anchorContent.y * (zoom * dpr);
+
+                setOffsetX(devX - pinch.anchorContent.x * (getZoom() * dpr));
+                setOffsetY(devY - pinch.anchorContent.y * (getZoom() * dpr));
+
                 renderAll();
                 updateHUD();
                 updatePlayheadMarker();
@@ -8596,9 +5551,6 @@
             const hex = activeSubColor[activeLayer] || "#000000";
             currentColor = hex;
             try {
-                setPickerToColorString?.(hex);
-            } catch {}
-            try {
                 setColorSwatch?.();
             } catch {}
             renderLayerSwatches();
@@ -8682,6 +5634,7 @@
         });
         bgColorInput?.addEventListener("input", e => {
             setCanvasBgColor(e.target.value);
+            renderAll();
         });
         bgColorInput?.addEventListener("click", e => {
             e.preventDefault();

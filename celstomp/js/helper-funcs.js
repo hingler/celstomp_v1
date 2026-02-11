@@ -21,3 +21,36 @@ function nowCSSVarPx(name, fallback) {
         return fallback;
     }
 }
+
+// tool - wasnt sure where to put it lolol
+let tool = "brush";
+
+// renderhud/renderall hooks
+
+const listeners_all = [];
+const listeners_hud = [];
+const listeners_fx = [];
+
+function queueRenderAll() {
+    listeners_all.forEach((l) => l());
+}
+
+function queueUpdateHud() {
+    listeners_hud.forEach((l) => l());
+}
+
+function queueClearFx() {
+    listeners_fx.forEach((l) => l());
+}
+
+function onRenderAll(l) {
+    listeners_all.push(l);
+}
+
+function onUpdateHud(l) {
+    listeners_hud.push(l);
+}
+
+function onClearFx(l) {
+    listeners_fx.push(l);
+}

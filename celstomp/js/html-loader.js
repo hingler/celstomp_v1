@@ -14,6 +14,16 @@
 
     const appScripts = [
         './js/helper-funcs.js',
+        './js/time-helper.js',
+        './js/color-manager.js',
+        './js/zoom-helper.js',
+        './js/color-wheel.js',
+        './js/layer-manager.js',
+        './js/timeline-helper.js',
+        './js/swatch-handler.js',
+        './js/canvas-helper.js',
+        './js/history-helper.js',
+        './js/pointer-events.js',
         './js/menu-wires.js',
         './js/mobile-native-zoom-guard.js',
         './js/mount-island-dock.js',
