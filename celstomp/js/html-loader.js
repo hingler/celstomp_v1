@@ -13,6 +13,7 @@
     ];
 
     const appScripts = [
+        './js/helper-funcs.js',
         './js/menu-wires.js',
         './js/mobile-native-zoom-guard.js',
         './js/mount-island-dock.js',
