@@ -31,6 +31,74 @@ eraserSize = eraserSettings.size;
 let antiAlias = false;
 let closeGapPx = 0;
 
+function initBrushCursorPreview(inputCanvasEl) {
+    _brushPrevCanvas = inputCanvasEl;
+    _brushPrevEl = document.getElementById("brushCursorPreview");
+    if (!_brushPrevCanvas || !_brushPrevEl) return;
+    let hovering = false;
+    let down = false;
+    const show = () => {
+        _brushPrevEl.style.display = "block";
+    };
+    const hide = () => {
+        _brushPrevEl.style.display = "none";
+    };
+    _brushPrevCanvas.addEventListener("pointerenter", () => {
+        hovering = true;
+        show();
+        scheduleBrushPreviewUpdate(true);
+    });
+    _brushPrevCanvas.addEventListener("pointerleave", () => {
+        hovering = false;
+        if (!down) hide();
+    });
+    _brushPrevCanvas.addEventListener("pointermove", e => {
+        _brushPrevLastEvt = e;
+        _brushPrevLastXY = {
+            x: e.clientX,
+            y: e.clientY
+        };
+        scheduleBrushPreviewUpdate();
+    });
+    _brushPrevCanvas.addEventListener("pointerdown", e => {
+        down = true;
+        _brushPrevLastEvt = e;
+        _brushPrevLastXY = {
+            x: e.clientX,
+            y: e.clientY
+        };
+        show();
+        scheduleBrushPreviewUpdate(true);
+    });
+    window.addEventListener("pointerup", () => {
+        down = false;
+        if (!hovering) hide();
+        scheduleBrushPreviewUpdate(true);
+    }, {
+        passive: true
+    });
+    _brushPrevCanvas.addEventListener("wheel", () => {
+        scheduleBrushPreviewUpdate(true);
+    }, {
+        passive: true
+    });
+    try {
+        brushSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
+    } catch {}
+    try {
+        eraserSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
+    } catch {}
+    document.addEventListener("change", e => {
+        const t = e.target;
+        if (!(t instanceof HTMLInputElement)) return;
+        if (t.name === "brush" || t.name === "brushShape" || t.name === "tool") scheduleBrushPreviewUpdate(true);
+    }, {
+        passive: true
+    });
+    hide();
+  }
+  
+
 function brushShapeForType(kind) {
     const t = String(kind || "circle");
     if (t === "circle" || t === "square" || t === "diamond" || t === "oval-h" || t === "oval-v" || t === "rect-h" || t === "rect-v" || t === "triangle") return t;
@@ -227,4 +295,63 @@ function getBrushStamp(sourceSettings, colorRaw) {
     };
     _brushStampCache.set(key, out);
     return out;
+}
+
+function scheduleBrushPreviewUpdate(force = false) {
+    if (!_brushPrevEl || !_brushPrevCanvas) return;
+    if (_brushPrevRAF && !force) return;
+    _brushPrevRAF = requestAnimationFrame(() => {
+        _brushPrevRAF = 0;
+        updateBrushPreview();
+    });
+}
+function getActiveToolKindForPreview() {
+    return String(typeof tool !== "undefined" && tool ? tool : "");
+}
+function getBrushSizeForPreview(toolKind) {
+    if (toolKind === "eraser") return Number(eraserSettings?.size ?? eraserSize ?? 8);
+    return Number(brushSettings?.size ?? brushSize ?? 6);
+}
+function updateBrushPreview() {
+    if (!_brushPrevEl || !_brushPrevCanvas) return;
+    const toolKind = getActiveToolKindForPreview();
+    const isBrush = toolKind === "brush";
+    const isEraser = toolKind === "eraser";
+    if (!isBrush && !isEraser) {
+        _brushPrevEl.style.display = "none";
+        return;
+    }
+    const pt = _brushPrevLastXY;
+    if (!pt) return;
+    const cx = pt.x;
+    const cy = pt.y;
+    const z = typeof getZoom() === "number" && isFinite(getZoom()) ? getZoom() : 1;
+    const settings = isEraser ? eraserSettings : brushSettings;
+    const renderSettings = normalizedBrushRenderSettings(settings);
+    const shape = brushShapeForType(renderSettings.shape || "circle");
+    const sizeContentPx = Math.max(1, renderSettings.size || getBrushSizeForPreview(isEraser ? "eraser" : "brush"));
+    const dim = brushShapeDimensions(shape, sizeContentPx);
+    const widthCssPx = Math.max(2, dim.w * z);
+    const heightCssPx = Math.max(2, dim.h * z);
+    _brushPrevEl.classList.remove("simple");
+    _brushPrevEl.classList.toggle("eraser", !!isEraser);
+    _brushPrevEl.style.border = "1px solid rgba(255,255,255,.95)";
+    _brushPrevEl.style.boxShadow = "0 0 0 1px rgba(0,0,0,.78)";
+    _brushPrevEl.style.borderStyle = isEraser ? "dashed" : "solid";
+    _brushPrevEl.style.left = `${cx}px`;
+    _brushPrevEl.style.top = `${cy}px`;
+    _brushPrevEl.style.width = `${widthCssPx}px`;
+    _brushPrevEl.style.height = `${heightCssPx}px`;
+    _brushPrevEl.style.borderRadius = "0";
+    _brushPrevEl.style.clipPath = "none";
+    let shapeRotation = 0;
+    if (shape === "circle" || shape === "oval-h" || shape === "oval-v") {
+        _brushPrevEl.style.borderRadius = "999px";
+    } else if (shape === "diamond") {
+        shapeRotation = 45;
+    } else if (shape === "triangle") {
+        _brushPrevEl.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
+    }
+    _brushPrevEl.style.transform = `translate(-50%, -50%) rotate(${shapeRotation + (renderSettings.angle || 0)}deg)`;
+    _brushPrevEl.style.display = "block";
 }

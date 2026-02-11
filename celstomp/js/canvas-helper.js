@@ -72,16 +72,19 @@ function resizeCanvases() {
       c.width = Math.max(1, Math.floor(cw * dpr));
       c.height = Math.max(1, Math.floor(ch * dpr));
   }
-  renderAll();
-  clearFx();
+  queueRenderAll();
+  queueClearFx();
   initBrushCursorPreview(drawCanvas);
 }
+
 function setTransform(ctx) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.setTransform(getZoom() * dpr, 0, 0, getZoom() * dpr, getOffsetX(), getOffsetY());
 }
+
 function centerView() {
+  const drawCanvas = getCanvas(CANVAS_TYPE.drawCanvas);
   const cw = drawCanvas.width;
   const ch = drawCanvas.height;
   setOffsetX((cw - contentW * getZoom() * dpr) / 2);

@@ -575,7 +575,7 @@ function loadProject(file, options = {}) {
               if (typeof stopPlayback === "function") stopPlayback();
           } catch {}
           try {
-              clearFx?.();
+              queueClearFx();
           } catch {}
           fps = clamp(parseInt(data.fps || 24, 10), 1, 120);
           seconds = clamp(parseInt(data.seconds || 5, 10), 1, 600);
@@ -770,10 +770,10 @@ function loadProject(file, options = {}) {
               wireLayerVisButtons?.();
           } catch {}
           try {
-              renderAll?.();
+              queueRenderAll();
           } catch {}
           try {
-              updateHUD?.();
+              queueUpdateHUD();
           } catch {}
           safeSetValue(brushSizeInput, brushSize);
           safeSetValue(brushSizeNumInput, brushSize);
@@ -812,7 +812,7 @@ function loadProject(file, options = {}) {
               centerView?.();
           } catch {}
           try {
-              updateHUD?.();
+              queueUpdateHUD();
           } catch {}
           try {
               if (typeof gotoFrame === "function") gotoFrame(currentFrame);

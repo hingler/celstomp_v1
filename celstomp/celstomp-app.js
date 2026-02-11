@@ -109,16 +109,16 @@
         const saveOklchDefaultBtn = $("saveOklchDefault");
         const oklchDefaultStatus = $("oklchDefaultStatus");
 
-        const toolSeg = document.getElementById("toolSeg");
-        const brushShapeSeg = document.getElementById("brushShapeSeg");
-        const toolSettingsSection = document.getElementById("toolSettingsSection");
-        const toolSettingsTitle = document.getElementById("toolSettingsTitle");
-        const toolFoldBrushesBtn = document.getElementById("toolFoldBrushesBtn");
-        const toolFoldBrushesBody = document.getElementById("toolFoldBrushesBody");
-        const toolFoldSettingsBtn = document.getElementById("toolFoldSettingsBtn");
-        const toolFoldSettingsBody = document.getElementById("toolFoldSettingsBody");
-        const brushShapeTooltip = document.getElementById("brushShapeTooltip");
-        const eraserOptionsPopup = document.getElementById("eraserOptionsPopup");
+        const toolSeg = $("toolSeg");
+        const brushShapeSeg = $("brushShapeSeg");
+        const toolSettingsSection = $("toolSettingsSection");
+        const toolSettingsTitle = $("toolSettingsTitle");
+        const toolFoldBrushesBtn = $("toolFoldBrushesBtn");
+        const toolFoldBrushesBody = $("toolFoldBrushesBody");
+        const toolFoldSettingsBtn = $("toolFoldSettingsBtn");
+        const toolFoldSettingsBody = $("toolFoldSettingsBody");
+        const brushShapeTooltip = $("brushShapeTooltip");
+        const eraserOptionsPopup = $("eraserOptionsPopup");
 
 
         // v different syntax for doing the same thing
@@ -129,7 +129,7 @@
             if (tool !== "eraser" && tool !== "fill-eraser") return;
             e.preventDefault();
             const inputId = lab.getAttribute("for");
-            const input = inputId ? document.getElementById(inputId) : null;
+            const input = inputId ? $(inputId) : null;
             if (input) input.checked = true;
             openPopupAt(eraserOptionsPopup, e.clientX + 6, e.clientY + 6);
         });
@@ -153,28 +153,28 @@
         const toggleAutosaveBtn = $("toggleAutosaveBtn");
         const autosaveIntervalBtn = $("autosaveIntervalBtn");
         const exportImgSeqBtn = $("exportImgSeqBtn") || $("exportImgSeq");
-        const clearAllModal = document.getElementById("clearAllModal");
-        const clearAllModalBackdrop = document.getElementById("clearAllModalBackdrop");
-        const clearAllConfirmBtn = document.getElementById("clearAllConfirmBtn");
-        const clearAllCancelBtn = document.getElementById("clearAllCancelBtn");
-        const exportGIFBtn = document.getElementById("exportGIFBtn");
-        const exportImgSeqModal = document.getElementById("exportImgSeqModal");
-        const exportImgSeqModalBackdrop = document.getElementById("exportImgSeqModalBackdrop");
-        const exportImgSeqTransparencyToggle = document.getElementById("exportImgSeqTransparency");
-        const exportImgSeqConfirmBtn = document.getElementById("exportImgSeqConfirmBtn");
-        const exportImgSeqCancelBtn = document.getElementById("exportImgSeqCancelBtn");
-        const exportGifModal = document.getElementById("exportGifModal");
-        const exportGifModalBackdrop = document.getElementById("exportGifModalBackdrop");
-        const exportGifFpsInput = document.getElementById("exportGifFps");
-        const exportGifTransparencyToggle = document.getElementById("exportGifTransparency");
-        const exportGifLoopToggle = document.getElementById("exportGifLoop");
-        const exportGifConfirmBtn = document.getElementById("exportGifConfirmBtn");
-        const exportGifCancelBtn = document.getElementById("exportGifCancelBtn");
-        const autosaveIntervalModal = document.getElementById("autosaveIntervalModal");
-        const autosaveIntervalModalBackdrop = document.getElementById("autosaveIntervalModalBackdrop");
-        const autosaveIntervalMinutesInput = document.getElementById("autosaveIntervalMinutesInput");
-        const autosaveIntervalConfirmBtn = document.getElementById("autosaveIntervalConfirmBtn");
-        const autosaveIntervalCancelBtn = document.getElementById("autosaveIntervalCancelBtn");
+        const clearAllModal = $("clearAllModal");
+        const clearAllModalBackdrop = $("clearAllModalBackdrop");
+        const clearAllConfirmBtn = $("clearAllConfirmBtn");
+        const clearAllCancelBtn = $("clearAllCancelBtn");
+        const exportGIFBtn = $("exportGIFBtn");
+        const exportImgSeqModal = $("exportImgSeqModal");
+        const exportImgSeqModalBackdrop = $("exportImgSeqModalBackdrop");
+        const exportImgSeqTransparencyToggle = $("exportImgSeqTransparency");
+        const exportImgSeqConfirmBtn = $("exportImgSeqConfirmBtn");
+        const exportImgSeqCancelBtn = $("exportImgSeqCancelBtn");
+        const exportGifModal = $("exportGifModal");
+        const exportGifModalBackdrop = $("exportGifModalBackdrop");
+        const exportGifFpsInput = $("exportGifFps");
+        const exportGifTransparencyToggle = $("exportGifTransparency");
+        const exportGifLoopToggle = $("exportGifLoop");
+        const exportGifConfirmBtn = $("exportGifConfirmBtn");
+        const exportGifCancelBtn = $("exportGifCancelBtn");
+        const autosaveIntervalModal = $("autosaveIntervalModal");
+        const autosaveIntervalModalBackdrop = $("autosaveIntervalModalBackdrop");
+        const autosaveIntervalMinutesInput = $("autosaveIntervalMinutesInput");
+        const autosaveIntervalConfirmBtn = $("autosaveIntervalConfirmBtn");
+        const autosaveIntervalCancelBtn = $("autosaveIntervalCancelBtn");
         const stabilizationSelect = $("stabilizationLevel");
         const pressureSizeToggle = $("pressureSize") || $("usePressureSize");
         const pressureOpacityToggle = $("pressureOpacity") || $("usePressureOpacity");
@@ -354,130 +354,6 @@
                 passive: true
             });
         }
-        function initBrushCursorPreview(inputCanvasEl) {
-            _brushPrevCanvas = inputCanvasEl;
-            _brushPrevEl = document.getElementById("brushCursorPreview");
-            if (!_brushPrevCanvas || !_brushPrevEl) return;
-            let hovering = false;
-            let down = false;
-            const show = () => {
-                _brushPrevEl.style.display = "block";
-            };
-            const hide = () => {
-                _brushPrevEl.style.display = "none";
-            };
-            _brushPrevCanvas.addEventListener("pointerenter", () => {
-                hovering = true;
-                show();
-                scheduleBrushPreviewUpdate(true);
-            });
-            _brushPrevCanvas.addEventListener("pointerleave", () => {
-                hovering = false;
-                if (!down) hide();
-            });
-            _brushPrevCanvas.addEventListener("pointermove", e => {
-                _brushPrevLastEvt = e;
-                _brushPrevLastXY = {
-                    x: e.clientX,
-                    y: e.clientY
-                };
-                scheduleBrushPreviewUpdate();
-            });
-            _brushPrevCanvas.addEventListener("pointerdown", e => {
-                down = true;
-                _brushPrevLastEvt = e;
-                _brushPrevLastXY = {
-                    x: e.clientX,
-                    y: e.clientY
-                };
-                show();
-                scheduleBrushPreviewUpdate(true);
-            });
-            window.addEventListener("pointerup", () => {
-                down = false;
-                if (!hovering) hide();
-                scheduleBrushPreviewUpdate(true);
-            }, {
-                passive: true
-            });
-            _brushPrevCanvas.addEventListener("wheel", () => {
-                scheduleBrushPreviewUpdate(true);
-            }, {
-                passive: true
-            });
-            try {
-                brushSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
-            } catch {}
-            try {
-                eraserSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
-            } catch {}
-            document.addEventListener("change", e => {
-                const t = e.target;
-                if (!(t instanceof HTMLInputElement)) return;
-                if (t.name === "brush" || t.name === "brushShape" || t.name === "tool") scheduleBrushPreviewUpdate(true);
-            }, {
-                passive: true
-            });
-            hide();
-        }
-        function scheduleBrushPreviewUpdate(force = false) {
-            if (!_brushPrevEl || !_brushPrevCanvas) return;
-            if (_brushPrevRAF && !force) return;
-            _brushPrevRAF = requestAnimationFrame(() => {
-                _brushPrevRAF = 0;
-                updateBrushPreview();
-            });
-        }
-        function getActiveToolKindForPreview() {
-            return String(typeof tool !== "undefined" && tool ? tool : "");
-        }
-        function getBrushSizeForPreview(toolKind) {
-            if (toolKind === "eraser") return Number(eraserSettings?.size ?? eraserSize ?? 8);
-            return Number(brushSettings?.size ?? brushSize ?? 6);
-        }
-        function updateBrushPreview() {
-            if (!_brushPrevEl || !_brushPrevCanvas) return;
-            const toolKind = getActiveToolKindForPreview();
-            const isBrush = toolKind === "brush";
-            const isEraser = toolKind === "eraser";
-            if (!isBrush && !isEraser) {
-                _brushPrevEl.style.display = "none";
-                return;
-            }
-            const pt = _brushPrevLastXY;
-            if (!pt) return;
-            const cx = pt.x;
-            const cy = pt.y;
-            const z = typeof getZoom() === "number" && isFinite(getZoom()) ? getZoom() : 1;
-            const settings = isEraser ? eraserSettings : brushSettings;
-            const renderSettings = normalizedBrushRenderSettings(settings);
-            const shape = brushShapeForType(renderSettings.shape || "circle");
-            const sizeContentPx = Math.max(1, renderSettings.size || getBrushSizeForPreview(isEraser ? "eraser" : "brush"));
-            const dim = brushShapeDimensions(shape, sizeContentPx);
-            const widthCssPx = Math.max(2, dim.w * z);
-            const heightCssPx = Math.max(2, dim.h * z);
-            _brushPrevEl.classList.remove("simple");
-            _brushPrevEl.classList.toggle("eraser", !!isEraser);
-            _brushPrevEl.style.border = "1px solid rgba(255,255,255,.95)";
-            _brushPrevEl.style.boxShadow = "0 0 0 1px rgba(0,0,0,.78)";
-            _brushPrevEl.style.borderStyle = isEraser ? "dashed" : "solid";
-            _brushPrevEl.style.left = `${cx}px`;
-            _brushPrevEl.style.top = `${cy}px`;
-            _brushPrevEl.style.width = `${widthCssPx}px`;
-            _brushPrevEl.style.height = `${heightCssPx}px`;
-            _brushPrevEl.style.borderRadius = "0";
-            _brushPrevEl.style.clipPath = "none";
-            let shapeRotation = 0;
-            if (shape === "circle" || shape === "oval-h" || shape === "oval-v") {
-                _brushPrevEl.style.borderRadius = "999px";
-            } else if (shape === "diamond") {
-                shapeRotation = 45;
-            } else if (shape === "triangle") {
-                _brushPrevEl.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
-            }
-            _brushPrevEl.style.transform = `translate(-50%, -50%) rotate(${shapeRotation + (renderSettings.angle || 0)}deg)`;
-            _brushPrevEl.style.display = "block";
-        }
 
         // updates text on page
         function updateHUD() {
@@ -534,9 +410,9 @@
             wireExtraKeyboardShortcuts();
         }
         function wireShortcutsModal() {
-            const modal = document.getElementById("shortcutsModal");
-            const backdrop = document.getElementById("shortcutsModalBackdrop");
-            const closeBtn = document.getElementById("shortcutsCloseBtn");
+            const modal = $("shortcutsModal");
+            const backdrop = $("shortcutsModalBackdrop");
+            const closeBtn = $("shortcutsCloseBtn");
             if (!modal || !backdrop || !closeBtn) return;
 
             const toggleModal = show => {
@@ -576,12 +452,12 @@
             });
         }
         function wireTimelineEnhancements() {
-            const insertBtn = document.getElementById("insertFrameBtn");
-            const deleteBtn = document.getElementById("deleteFrameBtn");
-            const gotoInput = document.getElementById("gotoFrameInput");
-            const gotoBtn = document.getElementById("gotoFrameBtn");
-            const zoomIn = document.getElementById("zoomTimelineIn");
-            const zoomOut = document.getElementById("zoomTimelineOut");
+            const insertBtn = $("insertFrameBtn");
+            const deleteBtn = $("deleteFrameBtn");
+            const gotoInput = $("gotoFrameInput");
+            const gotoBtn = $("gotoFrameBtn");
+            const zoomIn = $("zoomTimelineIn");
+            const zoomOut = $("zoomTimelineOut");
 
             if (insertBtn) {
                 insertBtn.addEventListener("click", () => insertFrame(currentFrame));
@@ -661,8 +537,8 @@
             commitGlobalHistoryStep();
         }
         function wireLayerQoL() {
-            const soloBtn = document.getElementById("soloLayerBtn");
-            const showAllBtn = document.getElementById("showAllLayersBtn");
+            const soloBtn = $("soloLayerBtn");
+            const showAllBtn = $("showAllLayersBtn");
             if (soloBtn) {
                 soloBtn.addEventListener("click", () => {
                     if (soloLayer === activeLayer) {
@@ -707,9 +583,9 @@
             }
         }
         function wirePaletteQoL() {
-            const newBtn = document.getElementById("newPaletteBtn");
-            const exportBtn = document.getElementById("exportPaletteBtn");
-            const importBtn = document.getElementById("importPaletteBtn");
+            const newBtn = $("newPaletteBtn");
+            const exportBtn = $("exportPaletteBtn");
+            const importBtn = $("importPaletteBtn");
             const loadFileInp = document.createElement("input");
             loadFileInp.type = "file";
             loadFileInp.accept = ".json,application/json";
@@ -773,8 +649,8 @@
 
                 if (k === "?" && !e.shiftKey) {
                     e.preventDefault();
-                    const modal = document.getElementById("shortcutsModal");
-                    const backdrop = document.getElementById("shortcutsModalBackdrop");
+                    const modal = $("shortcutsModal");
+                    const backdrop = $("shortcutsModalBackdrop");
                     if (modal && backdrop) {
                         modal.hidden = !modal.hidden;
                         backdrop.hidden = !backdrop.hidden;
@@ -790,7 +666,7 @@
 
                 if (k === "o") {
                     e.preventDefault();
-                    const onionBtn = document.getElementById("tlOnion");
+                    const onionBtn = $("tlOnion");
                     if (onionBtn) {
                         onionBtn.checked = !onionBtn.checked;
                         onionBtn.dispatchEvent(new Event("change"));
@@ -1230,8 +1106,8 @@
                 if (typeof brushSizeNumInput !== "undefined" && brushSizeNumInput) brushSizeNumInput.value = String(Math.round(Number(brushSize) || 1));
                 if (typeof brushVal !== "undefined" && brushVal) brushVal.textContent = String(Math.round(Number(brushSize) || 1));
                 if (typeof aaToggle !== "undefined" && aaToggle && "checked" in aaToggle) aaToggle.checked = !!antiAlias;
-                const ps = document.getElementById("pressureSize") || document.getElementById("usePressureSize");
-                const po = document.getElementById("pressureOpacity") || document.getElementById("usePressureOpacity");
+                const ps = $("pressureSize") || $("usePressureSize");
+                const po = $("pressureOpacity") || $("usePressureOpacity");
                 if (ps && "checked" in ps) ps.checked = !!usePressureSize;
                 if (po && "checked" in po) po.checked = !!usePressureOpacity;
             }
@@ -1481,7 +1357,7 @@
         }
         function getLayerRowElements(L) {
             const id = layerRadioIdForLayer(L);
-            const input = document.getElementById(id);
+            const input = $(id);
             const label = input ? input.closest("label") || document.querySelector(`label[for="${id}"]`) || input.parentElement : null;
             return {
                 input: input,
@@ -1489,7 +1365,7 @@
             };
         }
         function applyLayerSegOrder() {
-            const seg = document.getElementById("layerSeg");
+            const seg = $("layerSeg");
             if (!seg) return;
             const topToBottom = mainLayersTopToBottom();
             const ordered = topToBottom.concat(PAPER_LAYER);
@@ -1562,7 +1438,7 @@
             });
         }
         function injectVisBtn(radioId, L) {
-            const input = document.getElementById(radioId);
+            const input = $(radioId);
             if (!input) return;
             const label = input.closest("label") || document.querySelector(`label[for="${radioId}"]`) || input.parentElement;
             if (!label) return;
@@ -2364,7 +2240,7 @@
             if (typeof brushAntiAlias !== "undefined") return !!brushAntiAlias;
             if (typeof brushAA !== "undefined") return !!brushAA;
             if (typeof antiAlias !== "undefined") return !!antiAlias;
-            const el = document.getElementById("aaToggle") || document.getElementById("antiAlias") || document.getElementById("brushAA");
+            const el = $("aaToggle") || $("antiAlias") || $("brushAA");
             if (el && "checked" in el) return !!el.checked;
             return true;
         }
@@ -2780,7 +2656,7 @@
         }, {
             passive: false
         });
-        initStagePinchCameraZoom(document.getElementById("stageViewport") || document.getElementById("stage") || stageEl || drawCanvas);
+        initStagePinchCameraZoom($("stageViewport") || $("stage") || stageEl || drawCanvas);
         if (!drawCanvas._ptrWired) {
             drawCanvas._ptrWired = true;
             try {
@@ -2845,29 +2721,29 @@
         
         
         function mountIslandSlots() {
-            const island = document.getElementById("floatingIsland");
-            const wheelSlot = document.getElementById("islandWheelSlot");
-            const brushesSlot = document.getElementById("islandBrushesSlot");
-            const toolsSlot = document.getElementById("islandToolsSlot");
-            const layersSlot = document.getElementById("islandLayersSlot");
+            const island = $("floatingIsland");
+            const wheelSlot = $("islandWheelSlot");
+            const brushesSlot = $("islandBrushesSlot");
+            const toolsSlot = $("islandToolsSlot");
+            const layersSlot = $("islandLayersSlot");
             if (!island || !wheelSlot || !toolsSlot || !layersSlot) return;
-            const wheelWrap = document.getElementById("hsvWheelWrap");
+            const wheelWrap = $("hsvWheelWrap");
             if (wheelWrap && wheelWrap.parentElement !== wheelSlot) {
                 wheelSlot.appendChild(wheelWrap);
             }
-            const toolSeg = document.getElementById("toolSeg");
+            const toolSeg = $("toolSeg");
             if (toolSeg && toolSeg.parentElement !== toolsSlot) {
                 toolsSlot.appendChild(toolSeg);
             }
-            const mainBrushSizeGroup = document.getElementById("mainBrushSizeGroup");
+            const mainBrushSizeGroup = $("mainBrushSizeGroup");
             if (mainBrushSizeGroup && mainBrushSizeGroup.parentElement !== toolsSlot) {
                 toolsSlot.appendChild(mainBrushSizeGroup);
             }
-            const brushSeg = document.getElementById("brushSeg");
+            const brushSeg = $("brushSeg");
             if (brushSeg && brushSeg.parentElement !== brushesSlot) {
                 brushesSlot.appendChild(brushSeg);
             }
-            const layerSeg = document.getElementById("layerSeg");
+            const layerSeg = $("layerSeg");
             if (layerSeg && layerSeg.parentElement !== layersSlot) {
                 layersSlot.appendChild(layerSeg);
             }
@@ -2885,9 +2761,9 @@
         mountIslandSlots();
         
         function initIslandMinimizeTab() {
-            const island = document.getElementById("floatingIsland");
-            const collapseBtn = document.getElementById("islandCollapseBtn");
-            const tabBtn = document.getElementById("islandTab");
+            const island = $("floatingIsland");
+            const collapseBtn = $("islandCollapseBtn");
+            const tabBtn = $("islandTab");
             if (!island || !collapseBtn || !tabBtn) return;
             const LS_KEY = "celstomp_island_collapsed";
             const stop = e => {
@@ -2931,7 +2807,7 @@
             }, {
                 passive: false
             });
-            const header = document.getElementById("floatingIslandHeader");
+            const header = $("floatingIslandHeader");
             if (header) {
                 header.addEventListener("dblclick", e => {
                     if (e.target && e.target.closest("button")) return;
@@ -2954,12 +2830,12 @@
                 } catch (e) {
                     console.warn("[island] side panel init failed", e);
                 }
-                const island = document.getElementById("floatingIsland");
+                const island = $("floatingIsland");
                 const dock = island?.closest(".islandDock") || island;
-                const sideBtn = dock?.querySelector("#islandSideBtn") || document.getElementById("islandSideBtn");
-                const sidePanel = dock?.querySelector("#islandSidePanel") || document.getElementById("islandSidePanel");
-                const collapseBtn = document.getElementById("islandCollapseBtn");
-                const tabBtn = document.getElementById("islandTab");
+                const sideBtn = dock?.querySelector("#islandSideBtn") || $("islandSideBtn");
+                const sidePanel = dock?.querySelector("#islandSidePanel") || $("islandSidePanel");
+                const collapseBtn = $("islandCollapseBtn");
+                const tabBtn = $("islandTab");
                 return !!(island && dock && sideBtn && sidePanel && collapseBtn && tabBtn);
             }
             function boot() {
@@ -2981,10 +2857,10 @@
             }
         })();
         (() => {
-            const btn = document.getElementById("infoBtn");
-            const panel = document.getElementById("infoPanel");
-            const back = document.getElementById("infoBackdrop");
-            const close = document.getElementById("infoCloseBtn");
+            const btn = $("infoBtn");
+            const panel = $("infoPanel");
+            const back = $("infoBackdrop");
+            const close = $("infoCloseBtn");
             if (!btn || !panel || !back) return;
             function openInfo() {
                 btn.setAttribute("aria-expanded", "true");
@@ -3015,11 +2891,11 @@
             });
         })();
         function initIslandSidePanel() {
-            const island = document.getElementById("floatingIsland");
+            const island = $("floatingIsland");
             if (!island) return;
             const dock = island.closest(".islandDock") || island;
-            const sideBtn = dock.querySelector("#islandSideBtn") || document.getElementById("islandSideBtn");
-            const sidePanel = dock.querySelector("#islandSidePanel") || document.getElementById("islandSidePanel");
+            const sideBtn = dock.querySelector("#islandSideBtn") || $("islandSideBtn");
+            const sidePanel = dock.querySelector("#islandSidePanel") || $("islandSidePanel");
             if (!sideBtn || !sidePanel) return;
             if (sidePanel.parentElement !== dock) dock.appendChild(sidePanel);
             const LS_KEY = "celstomp_island_side_open";
@@ -3086,10 +2962,10 @@
 
         (() => {
             function boot() {
-                const tl = document.getElementById("timeline");
-                const header = document.getElementById("timelineHeader");
-                const leftBtn = document.getElementById("tlMobLeftBtn");
-                const rightBtn = document.getElementById("tlMobRightBtn");
+                const tl = $("timeline");
+                const header = $("timelineHeader");
+                const leftBtn = $("tlMobLeftBtn");
+                const rightBtn = $("tlMobRightBtn");
                 if (!tl || !header || !leftBtn || !rightBtn) return;
                 if (tl._mobDrawerWired) return;
                 tl._mobDrawerWired = true;
@@ -3181,7 +3057,7 @@
             }
         })();
         (() => {
-            const btn = document.getElementById("mobileIslandToggle");
+            const btn = $("mobileIslandToggle");
             const app = document.querySelector(".app");
             if (!btn || !app) return;
             function toggleIsland() {
@@ -3203,9 +3079,9 @@
             });
         })();
         function initTimelineOnionContextMenu() {
-            const onionBtn = document.getElementById("tlOnion");
-            const menu = document.getElementById("onionCtxMenu");
-            const block = document.getElementById("onionOptionsBlock");
+            const onionBtn = $("tlOnion");
+            const menu = $("onionCtxMenu");
+            const block = $("onionOptionsBlock");
             if (!onionBtn || !menu || !block) return;
             if (menu._wired) return;
             menu._wired = true;
@@ -3267,7 +3143,7 @@
             });
         }
         function initMobileTimelineScrub() {
-            const row = document.getElementById("tlPlayheadRow") || document.querySelector(".playheadRow") || document.querySelector("[data-playhead-row]");
+            const row = $("tlPlayheadRow") || document.querySelector(".playheadRow") || document.querySelector("[data-playhead-row]");
             if (!row || row._mobileScrubWired) return;
             row._mobileScrubWired = true;
             function findScroller(el) {
@@ -3354,8 +3230,8 @@
             initMobileTimelineScrub();
         } catch {}
         function initTimelineToggleBridge() {
-            const tlOnion = document.getElementById("tlOnion");
-            const btnOnion = document.getElementById("toggleOnion");
+            const tlOnion = $("tlOnion");
+            const btnOnion = $("toggleOnion");
             if (!tlOnion) return;
             const btnIsOn = btn => {
                 if (!btn) return null;
@@ -3405,7 +3281,7 @@
             if (!drawCanvas) return;
             if (window.__CELSTOMP_PTR_DRAW_WIRED__) return;
             window.__CELSTOMP_PTR_DRAW_WIRED__ = true;
-            const stageViewport = document.getElementById("stageViewport") || document.getElementById("stage") || drawCanvas;
+            const stageViewport = $("stageViewport") || $("stage") || drawCanvas;
             try {
                 stageViewport.style.touchAction = "none";
             } catch {}
@@ -3864,7 +3740,7 @@
         }
         
         function wireIslandResize() {
-            const dock = document.querySelector(".islandDock") || document.getElementById("floatingIsland");
+            const dock = document.querySelector(".islandDock") || $("floatingIsland");
             if (!dock || dock._islandResizeWired) return;
             dock._islandResizeWired = true;
             let handle = dock.querySelector(".islandResizeHandle");
@@ -4146,17 +4022,17 @@
         });
         function setTransparencyEnabled(on) {
             transparencyHoldEnabled = !!on;
-            const btn = document.getElementById("toggleTransparency");
+            const btn = $("toggleTransparency");
             if (btn) btn.textContent = `Transparency: ${transparencyHoldEnabled ? "On" : "Off"}`;
-            const chk = document.getElementById("tlTransparency");
+            const chk = $("tlTransparency");
             if (chk) chk.checked = transparencyHoldEnabled;
             try {
                 renderAll();
             } catch {}
         }
         function initTransparencyControls() {
-            const btn = document.getElementById("toggleTransparency");
-            const chk = document.getElementById("tlTransparency");
+            const btn = $("toggleTransparency");
+            const chk = $("tlTransparency");
             if (btn && !btn._wiredTransparency) {
                 btn._wiredTransparency = true;
                 btn.addEventListener("click", () => setTransparencyEnabled(!transparencyHoldEnabled));
@@ -4286,10 +4162,10 @@
         function initSaveLoadWiring() {
             if (window.__CELSTOMP_SAVELOAD_WIRED__) return;
             window.__CELSTOMP_SAVELOAD_WIRED__ = true;
-            const saveProjBtn = document.getElementById("saveProj");
-            const loadProjBtn = document.getElementById("loadProj");
-            const loadFileInp = document.getElementById("loadFileInp");
-            const restoreAutosaveBtn = document.getElementById("restoreAutosave");
+            const saveProjBtn = $("saveProj");
+            const loadProjBtn = $("loadProj");
+            const loadFileInp = $("loadFileInp");
+            const restoreAutosaveBtn = $("restoreAutosave");
             if (!saveProjBtn || !loadProjBtn || !loadFileInp) return;
             saveProjBtn.addEventListener("click", async () => {
                 try {
@@ -4381,10 +4257,10 @@
                 if (!typing && !ctrl && !e.altKey) {
                     const isDigit = n => e.code === `Digit${n}` || e.code === `Numpad${n}` || e.key === String(n);
                     const pickTool = ({id: id, value: value, altIds: altIds = []}) => {
-                        let inp = id && document.getElementById(id) || null;
+                        let inp = id && $(id) || null;
                         if (!inp) {
                             for (const a of altIds) {
-                                inp = document.getElementById(a);
+                                inp = $(a);
                                 if (inp) break;
                             }
                         }
@@ -4534,7 +4410,7 @@
             }
         });
         function wireFloatingIslandDrag() {
-            const dock = document.getElementById("floatingIsland") || document.querySelector(".islandDock");
+            const dock = $("floatingIsland") || document.querySelector(".islandDock");
             if (!dock) return;
             const head = dock.querySelector(".islandHeader");
             if (!head) return;
@@ -4629,8 +4505,8 @@
                 });
             }
             function apply() {
-                const slot = document.getElementById("islandLayersSlot");
-                const seg = document.getElementById("layerSeg");
+                const slot = $("islandLayersSlot");
+                const seg = $("layerSeg");
                 if (!slot || !seg) return;
                 if (!slot.contains(seg)) {
                     if (st.lastScale !== 1) {
@@ -4658,8 +4534,8 @@
                 seg.style.willChange = "transform";
             }
             function startObservers() {
-                const slot = document.getElementById("islandLayersSlot");
-                const seg = document.getElementById("layerSeg");
+                const slot = $("islandLayersSlot");
+                const seg = $("layerSeg");
                 if (!slot || !seg) return;
                 st.ro = new ResizeObserver(schedule);
                 st.ro.observe(slot);
@@ -4681,8 +4557,8 @@
             }
             st.docMo = new MutationObserver(() => {
                 schedule();
-                const slot = document.getElementById("islandLayersSlot");
-                const seg = document.getElementById("layerSeg");
+                const slot = $("islandLayersSlot");
+                const seg = $("layerSeg");
                 if (slot && seg && slot.contains(seg)) {
                     if (!st.ro) startObservers();
                 }
@@ -4736,7 +4612,7 @@
         wirePanelToggles();
         wireBrushButtonRightClick();
         wireEraserButtonRightClick();
-        wirePointerDrawingOnCanvas(document.getElementById("drawCanvas"));
+        wirePointerDrawingOnCanvas($("drawCanvas"));
 
         // initialization flow (ie: calling predefined funcs)
         buildAndInit();
