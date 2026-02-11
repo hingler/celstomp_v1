@@ -83,10 +83,10 @@ function initBrushCursorPreview(inputCanvasEl) {
         passive: true
     });
     try {
-        brushSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
+        $("brushSizeInput")?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
     } catch {}
     try {
-        eraserSizeInput?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
+        $("eraserSizeInput")?.addEventListener("input", () => scheduleBrushPreviewUpdate(true));
     } catch {}
     document.addEventListener("change", e => {
         const t = e.target;
@@ -354,4 +354,164 @@ function updateBrushPreview() {
     }
     _brushPrevEl.style.transform = `translate(-50%, -50%) rotate(${shapeRotation + (renderSettings.angle || 0)}deg)`;
     _brushPrevEl.style.display = "block";
+}
+
+function getBrushAntiAliasEnabled() {
+    if (typeof brushAntiAlias !== "undefined") return !!brushAntiAlias;
+    if (typeof brushAA !== "undefined") return !!brushAA;
+    if (typeof antiAlias !== "undefined") return !!antiAlias;
+    const el = $("aaToggle") || $("antiAlias") || $("brushAA");
+    if (el && "checked" in el) return !!el.checked;
+    return true;
+}
+
+///////////
+// MENUS //
+///////////
+
+let _brushCtxMenu = null;
+let _brushCtxState = null;
+function ensureBrushCtxMenu() {
+    if (_brushCtxMenu) return _brushCtxMenu;
+    const m = document.createElement("div");
+    m.id = "brushCtxMenu";
+    m.hidden = true;
+    Object.assign(m.style, {
+        position: "fixed",
+        zIndex: "10000",
+        minWidth: "220px",
+        padding: "10px",
+        borderRadius: "12px",
+        background: "rgba(18,18,20,0.96)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+        color: "rgba(255,255,255,0.92)",
+        fontFamily: "var(--font), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
+        fontSize: "13px",
+        backdropFilter: "blur(8px)"
+    });
+    m.innerHTML = `\n        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">\n          <div style="font-weight:700; letter-spacing:.2px;">Brush options</div>\n        </div>\n\n        <div style="display:flex; align-items:center; gap:10px; margin:8px 0;">\n          <div style="width:52px; opacity:.85;">Size</div>\n          <input id="bcmSize" type="range" min="1" max="200" step="1" value="3" style="flex:1;">\n          <div id="bcmSizeVal" style="width:34px; text-align:right; font-variant-numeric:tabular-nums;">3</div>\n        </div>\n\n        <label style="display:flex; align-items:center; gap:10px; margin:8px 0; cursor:pointer;">\n          <input id="bcmAA" type="checkbox">\n          <span>Anti-alias</span>\n        </label>\n\n        <div style="margin:10px 0 6px; font-weight:700; opacity:.9;">Pressure</div>\n\n        <label style="display:flex; align-items:center; gap:10px; margin:6px 0; cursor:pointer;">\n          <input id="bcmPSize" type="checkbox">\n          <span>Pressure → Size</span>\n        </label>\n\n        <label style="display:flex; align-items:center; gap:10px; margin:6px 0; cursor:pointer;">\n          <input id="bcmPOp" type="checkbox">\n          <span>Pressure → Opacity</span>\n        </label>\n\n        <div style="display:flex; gap:8px; margin-top:10px;">\n          <button type="button" id="bcmReset"\n            style="flex:1; padding:8px 10px; border-radius:10px; cursor:pointer;\n                  background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.92);\n                  border:1px solid rgba(255,255,255,0.12); font:inherit;">\n            Reset\n          </button>\n        </div>\n      `;
+    const $m = sel => m.querySelector(sel);
+    const sizeEl = $m("#bcmSize");
+    const sizeVal = $m("#bcmSizeVal");
+    const aaEl = $m("#bcmAA");
+    const pSizeEl = $m("#bcmPSize");
+    const pOpEl = $m("#bcmPOp");
+    const resetBtn = $m("#bcmReset");
+    function syncRangeLimitsFromMainUI() {
+        const brushSizeInput = $("brushSize") || $("brushSizeRange");
+
+        if (typeof brushSizeInput !== "undefined" && brushSizeInput) {
+            if (brushSizeInput.min) sizeEl.min = brushSizeInput.min;
+            if (brushSizeInput.max) sizeEl.max = brushSizeInput.max;
+            if (brushSizeInput.step) sizeEl.step = brushSizeInput.step;
+        }
+    }
+    function syncMenuFromState() {
+        syncRangeLimitsFromMainUI();
+        const v = Math.round(Number(brushSize) || 1);
+        sizeEl.value = String(v);
+        sizeVal.textContent = String(v);
+        aaEl.checked = !!antiAlias;
+        pSizeEl.checked = !!usePressureSize;
+        pOpEl.checked = !!usePressureOpacity;
+    }
+    function syncMainUIFromState() {
+        const brushSizeInput = $("brushSize") || $("brushSizeRange");
+        const brushSizeNumInput = $("brushSizeNum");
+        const brushVal = $("brushVal");
+        const aaToggle = $("aaToggle");
+
+        if (typeof brushSizeInput !== "undefined" && brushSizeInput) brushSizeInput.value = String(Math.round(Number(brushSize) || 1));
+        if (typeof brushSizeNumInput !== "undefined" && brushSizeNumInput) brushSizeNumInput.value = String(Math.round(Number(brushSize) || 1));
+        if (typeof brushVal !== "undefined" && brushVal) brushVal.textContent = String(Math.round(Number(brushSize) || 1));
+        if (typeof aaToggle !== "undefined" && aaToggle && "checked" in aaToggle) aaToggle.checked = !!antiAlias;
+        const ps = $("pressureSize") || $("usePressureSize");
+        const po = $("pressureOpacity") || $("usePressureOpacity");
+        if (ps && "checked" in ps) ps.checked = !!usePressureSize;
+        if (po && "checked" in po) po.checked = !!usePressureOpacity;
+    }
+    function applyBrushSizeFromMenu() {
+        const v = Math.round(Number(sizeEl.value) || 1);
+        brushSize = clamp(v, 1, 999);
+        sizeVal.textContent = String(brushSize);
+        syncMainUIFromState();
+    }
+    sizeEl.addEventListener("input", applyBrushSizeFromMenu);
+    sizeEl.addEventListener("change", applyBrushSizeFromMenu);
+    aaEl.addEventListener("change", () => {
+        antiAlias = !!aaEl.checked;
+        syncMainUIFromState();
+        try {
+            renderAll?.();
+        } catch {}
+    });
+    pSizeEl.addEventListener("change", () => {
+        usePressureSize = !!pSizeEl.checked;
+        syncMainUIFromState();
+    });
+    pOpEl.addEventListener("change", () => {
+        usePressureOpacity = !!pOpEl.checked;
+        syncMainUIFromState();
+    });
+    resetBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        brushSize = 3;
+        antiAlias = false;
+        usePressureSize = true;
+        usePressureOpacity = false;
+        syncMenuFromState();
+        syncMainUIFromState();
+        try {
+            renderAll?.();
+        } catch {}
+    });
+    document.addEventListener("mousedown", e => {
+        if (m.hidden) return;
+        if (e.target === m || m.contains(e.target)) return;
+        closeBrushCtxMenu();
+    }, true);
+    document.addEventListener("keydown", e => {
+        if (m.hidden) return;
+        if (e.key === "Escape") closeBrushCtxMenu();
+    });
+    window.addEventListener("blur", () => closeBrushCtxMenu());
+    document.body.appendChild(m);
+    m._syncFromState = syncMenuFromState;
+    _brushCtxMenu = m;
+    return m;
+}
+function openBrushCtxMenu(ev, anchorEl) {
+    try {
+        closeEraserCtxMenu?.();
+    } catch {}
+    const m = ensureBrushCtxMenu();
+    _brushCtxState = {
+        anchorEl: anchorEl || null
+    };
+    try {
+        m._syncFromState?.();
+    } catch {}
+    m.hidden = false;
+    m.style.left = "0px";
+    m.style.top = "0px";
+    const pad = 6;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const r = m.getBoundingClientRect();
+    let x = (ev?.clientX ?? 0) + 8;
+    let y = (ev?.clientY ?? 0) + 8;
+    if (x + r.width + pad > vw) x = Math.max(pad, vw - r.width - pad);
+    if (y + r.height + pad > vh) y = Math.max(pad, vh - r.height - pad);
+    m.style.left = `${x}px`;
+    m.style.top = `${y}px`;
+    try {
+        m.querySelector("#bcmSize")?.focus({
+            preventScroll: true
+        });
+    } catch {}
+}
+function closeBrushCtxMenu() {
+    if (_brushCtxMenu) _brushCtxMenu.hidden = true;
+    _brushCtxState = null;
 }

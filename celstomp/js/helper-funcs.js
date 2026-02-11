@@ -22,6 +22,25 @@ function nowCSSVarPx(name, fallback) {
     }
 }
 
+const CANVAS_TYPE = {
+    boundsCanvas: 0,
+    drawCanvas: 1,
+    fxCanvas: 2
+}
+
+function getCanvas(t) {
+    switch(t) {
+        case CANVAS_TYPE.boundsCanvas:
+        return $("boundsCanvas");
+        case CANVAS_TYPE.drawCanvas:
+        return $("drawCanvas");
+        case CANVAS_TYPE.fxCanvas:
+        return $("fxCanvas");
+        default:
+        return null;
+    }
+}
+
 // tool - wasnt sure where to put it lolol
 let tool = "brush";
 

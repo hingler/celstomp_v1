@@ -107,9 +107,8 @@ function getFrameCanvas(L, F, colorStr) {
   if (!sub) return null;
   if (!sub.frames[F]) {
       const off = document.createElement("canvas");
-      // lololol
-
       // TODO: this is broken. figure out how to store/reload layer state efficiently
+      // (some sort of "project state" antecedent to export/history might be good)
       off.width = 960;
       off.height = 540;
       off._hasContent = false;
@@ -315,6 +314,82 @@ function setCanvasBgColor(next) {
   renderPaperSwatch();
 }
 
+function _canvasHasAnyAlpha(c) {
+    try {
+        const ctx = c.getContext("2d", {
+            willReadFrequently: true
+        });
+        const data = ctx.getImageData(0, 0, contentW, contentH).data;
+        for (let i = 3; i < data.length; i += 4) {
+            if (data[i] > 0) return true;
+        }
+    } catch {}
+    return false;
+}
+function _sublayerHasAnyContentAccurate(sub) {
+    if (!sub || !Array.isArray(sub.frames)) return false;
+    for (let f = 0; f < sub.frames.length; f++) {
+        const c = sub.frames[f];
+        if (!c) continue;
+        if (c._hasContent) {
+            if (_canvasHasAnyAlpha(c)) {
+                c._hasContent = true;
+                return true;
+            }
+            c._hasContent = false;
+        }
+    }
+    return false;
+}
+
+function pruneUnusedSublayers(L) {
+    if (L === PAPER_LAYER) return false;
+    const layer = layers[L];
+    if (!layer) return false;
+    if (!layer.sublayers) layer.sublayers = new Map;
+    if (!Array.isArray(layer.suborder)) layer.suborder = [];
+    let removedAny = false;
+    for (let i = layer.suborder.length - 1; i >= 0; i--) {
+        const key = layer.suborder[i];
+        const sub = layer.sublayers.get(key);
+        const keep = _sublayerHasAnyContentAccurate(sub);
+        if (!keep) {
+            layer.sublayers.delete(key);
+            layer.suborder.splice(i, 1);
+            removedAny = true;
+            try {
+                for (const hk of historyMap.keys()) {
+                    if (hk.startsWith(`${L}:`) && hk.endsWith(`:${key}`)) historyMap.delete(hk);
+                }
+            } catch {}
+        }
+    }
+    if (!removedAny) return false;
+    const curKey = activeSubColor?.[L];
+    if (curKey && !layer.sublayers.has(curKey)) {
+        activeSubColor[L] = layer.suborder[layer.suborder.length - 1] || (L === LAYER.FILL ? fillWhite : "#000000");
+    }
+    if (L === activeLayer) {
+        const k = activeSubColor?.[L];
+        if (k && layer.sublayers.has(k)) {
+            currentColor = k;
+            try {
+                setColorSwatch?.();
+            } catch {}
+            try {
+                setHSVPreviewBox?.();
+            } catch {}
+        }
+    }
+    try {
+        normalizeLayerSwatchKeys(layer);
+    } catch {}
+    try {
+        renderLayerSwatches(L);
+    } catch {}
+    return true;
+}
+
 
 // lookup funcs
 
@@ -360,4 +435,326 @@ function mainLayerHasContent(L, F) {
         if (off && off._hasContent) return true;
     }
     return false;
+}
+
+function setLayerVisibility(L, vis) {
+    const now = !!vis;
+    const cur = layers[L].opacity ?? 1;
+    if (!now) {
+        if (cur > 0) layers[L].prevOpacity = cur;
+        layers[L].opacity = 0;
+    } else {
+        layers[L].opacity = layers[L].prevOpacity > 0 ? layers[L].prevOpacity : 1;
+    }
+    queueRenderAll();
+    updateVisBtn(L);
+}
+function setLayerOpacity(L, a) {
+    const v = Math.max(0, Math.min(1, Number(a) || 0));
+    layers[L].opacity = v;
+    if (v > 0) layers[L].prevOpacity = v;
+    queueRenderAll();
+    updateVisBtn(L);
+}
+
+///////////
+// MENUS //
+///////////
+let _layerOpMenu = null;
+let _layerOpState = null;
+function ensureLayerOpacityMenu() {
+    if (_layerOpMenu) return _layerOpMenu;
+    const m = document.createElement("div");
+    m.id = "layerOpacityMenu";
+    m.hidden = true;
+    m.innerHTML = `\n        <div class="lom-title" id="lomTitle">Layer opacity</div>\n        <input id="lomRange" type="range" min="0" max="100" step="1" value="100" />\n        <div class="lom-row">\n          <span class="lom-val" id="lomVal">100%</span>\n          <button type="button" class="lom-reset" id="lomReset">Reset</button>\n        </div>\n      `;
+    const range = m.querySelector("#lomRange");
+    const val = m.querySelector("#lomVal");
+    const reset = m.querySelector("#lomReset");
+    function applyFromRange() {
+        const st = _layerOpState;
+        if (!st) return;
+        const pct = Number(range.value) || 0;
+        val.textContent = `${pct}%`;
+        setLayerOpacity(st.L, pct / 100);
+    }
+    range.addEventListener("input", applyFromRange);
+    range.addEventListener("change", applyFromRange);
+    reset.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        range.value = "100";
+        applyFromRange();
+    });
+    document.addEventListener("mousedown", e => {
+        if (m.hidden) return;
+        if (e.target === m || m.contains(e.target)) return;
+        closeLayerOpacityMenu();
+    }, true);
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") closeLayerOpacityMenu();
+    });
+    window.addEventListener("blur", closeLayerOpacityMenu);
+    document.body.appendChild(m);
+    _layerOpMenu = m;
+    return m;
+}
+function openLayerOpacityMenu(L, ev) {
+    if (L === PAPER_LAYER) return;
+    if (!layers?.[L]) return;
+    const m = ensureLayerOpacityMenu();
+    _layerOpState = {
+        L: L
+    };
+    const title = m.querySelector("#lomTitle");
+    const range = m.querySelector("#lomRange");
+    const val = m.querySelector("#lomVal");
+    const name = layers[L]?.name || `Layer ${L}`;
+    const pct = Math.round((layers[L]?.opacity ?? 1) * 100);
+    if (title) title.textContent = `${name} opacity`;
+    if (range) range.value = String(Math.max(0, Math.min(100, pct)));
+    if (val) val.textContent = `${Math.max(0, Math.min(100, pct))}%`;
+    m.hidden = false;
+    m.style.left = "0px";
+    m.style.top = "0px";
+    const pad = 6;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const r = m.getBoundingClientRect();
+    let x = (ev?.clientX ?? 0) + 8;
+    let y = (ev?.clientY ?? 0) + 8;
+    if (x + r.width + pad > vw) x = Math.max(pad, vw - r.width - pad);
+    if (y + r.height + pad > vh) y = Math.max(pad, vh - r.height - pad);
+    m.style.left = `${x}px`;
+    m.style.top = `${y}px`;
+    try {
+        range?.focus({
+            preventScroll: true
+        });
+    } catch {}
+}
+function closeLayerOpacityMenu() {
+    if (_layerOpMenu) _layerOpMenu.hidden = true;
+    _layerOpState = null;
+}
+
+let _layerRowMenu = null;
+let _layerRowState = null;
+function ensureLayerRowMenu() {
+    if (_layerRowMenu) return _layerRowMenu;
+    const m = document.createElement("div");
+    m.id = "layerRowMenu";
+    m.hidden = true;
+    m.innerHTML = `\n        <button type="button" class="lrm-btn" data-act="opacity">Opacity…</button>\n      `;
+    m.addEventListener("click", e => {
+        const b = e.target.closest("button[data-act]");
+        if (!b) return;
+        const act = b.dataset.act;
+        const st = _layerRowState;
+        closeLayerRowMenu();
+        if (!st) return;
+        const L = st.L;
+        if (act === "opacity") {
+            openLayerOpacityMenu(L, st.anchorEvLike);
+            return;
+        }
+    });
+    document.addEventListener("mousedown", e => {
+        if (m.hidden) return;
+        if (e.target === m || m.contains(e.target)) return;
+        closeLayerRowMenu();
+    }, true);
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") closeLayerRowMenu();
+    });
+    window.addEventListener("blur", closeLayerRowMenu);
+    document.body.appendChild(m);
+    _layerRowMenu = m;
+    return m;
+}
+function openLayerRowMenu(L, ev) {
+    if (L === PAPER_LAYER) return;
+    if (!layers?.[L]) return;
+    const m = ensureLayerRowMenu();
+    const anchorEvLike = {
+        clientX: ev?.clientX ?? 0,
+        clientY: ev?.clientY ?? 0
+    };
+    _layerRowState = {
+        L: L,
+        anchorEvLike: anchorEvLike
+    };
+    m.hidden = false;
+    m.style.left = "0px";
+    m.style.top = "0px";
+    const pad = 6;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const r = m.getBoundingClientRect();
+    let x = (ev?.clientX ?? 0) + 8;
+    let y = (ev?.clientY ?? 0) + 8;
+    if (x + r.width + pad > vw) x = Math.max(pad, vw - r.width - pad);
+    if (y + r.height + pad > vh) y = Math.max(pad, vh - r.height - pad);
+    m.style.left = `${x}px`;
+    m.style.top = `${y}px`;
+}
+function closeLayerRowMenu() {
+    if (_layerRowMenu) _layerRowMenu.hidden = true;
+    _layerRowState = null;
+}
+
+const visBtnByLayer = new Map;
+const layerMoveCtrlsByLayer = new Map;
+function layerIsHidden(L) {
+    if (L === PAPER_LAYER) return false;
+    return (layers[L]?.opacity ?? 1) <= 0;
+}
+function updateVisBtn(L) {
+    const btn = visBtnByLayer.get(L);
+    if (!btn) return;
+    const hidden = layerIsHidden(L);
+    btn.classList.toggle("is-hidden", hidden);
+    btn.textContent = hidden ? "🙈" : "👁";
+    btn.title = hidden ? "Show layer" : "Hide layer";
+    btn.setAttribute("aria-pressed", hidden ? "true" : "false");
+}
+function getLayerRowElements(L) {
+    const id = layerRadioIdForLayer(L);
+    const input = $(id);
+    const label = input ? input.closest("label") || document.querySelector(`label[for="${id}"]`) || input.parentElement : null;
+    return {
+        input: input,
+        label: label
+    };
+}
+function applyLayerSegOrder() {
+    const seg = $("layerSeg");
+    if (!seg) return;
+    const topToBottom = mainLayersTopToBottom();
+    const ordered = topToBottom.concat(PAPER_LAYER);
+    for (const L of ordered) {
+        const row = getLayerRowElements(L);
+        if (!row?.input || !row?.label) continue;
+        seg.appendChild(row.input);
+        seg.appendChild(row.label);
+    }
+}
+function moveLayerInList(L, dir) {
+    if (L === PAPER_LAYER) return;
+    const ui = mainLayersTopToBottom();
+    const idx = ui.indexOf(L);
+    if (idx < 0) return;
+    const next = idx + dir;
+    if (next < 0 || next >= ui.length) return;
+    [ ui[idx], ui[next] ] = [ ui[next], ui[idx] ];
+    mainLayerOrder = normalizeMainLayerOrder(ui.slice().reverse());
+    applyLayerSegOrder();
+    wireLayerVisButtons();
+    queueRenderAll();
+
+    // TODO: this throws a wrench in things
+    // rearrange export logic st dirty logic precedes layer logic
+    // markProjectDirty();
+}
+function updateLayerMoveButtons() {
+    const ui = mainLayersTopToBottom();
+    for (let i = 0; i < ui.length; i++) {
+        const L = ui[i];
+        const refs = layerMoveCtrlsByLayer.get(L);
+        if (!refs) continue;
+        refs.up.disabled = i === 0;
+        refs.down.disabled = i === ui.length - 1;
+        refs.up.title = refs.up.disabled ? "Already at top" : "Move layer up";
+        refs.down.title = refs.down.disabled ? "Already at bottom" : "Move layer down";
+    }
+}
+function ensureLayerMoveControls(label, L) {
+    if (!label || L === PAPER_LAYER) return;
+    const existing = label.querySelector(".layerMoveControls");
+    if (existing) return;
+    const wrap = document.createElement("span");
+    wrap.className = "layerMoveControls";
+    const up = document.createElement("button");
+    up.type = "button";
+    up.className = "layerMoveBtn";
+    up.textContent = "▲";
+    up.setAttribute("aria-label", "Move layer up");
+    up.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        moveLayerInList(L, -1);
+    });
+    const down = document.createElement("button");
+    down.type = "button";
+    down.className = "layerMoveBtn";
+    down.textContent = "▼";
+    down.setAttribute("aria-label", "Move layer down");
+    down.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        moveLayerInList(L, 1);
+    });
+    wrap.appendChild(up);
+    wrap.appendChild(down);
+    const sw = label.querySelector(".layerSwatches");
+    if (sw) label.insertBefore(wrap, sw); else label.appendChild(wrap);
+    layerMoveCtrlsByLayer.set(L, {
+        up: up,
+        down: down
+    });
+}
+function injectVisBtn(radioId, L) {
+    const input = $(radioId);
+    if (!input) return;
+    const label = input.closest("label") || document.querySelector(`label[for="${radioId}"]`) || input.parentElement;
+    if (!label) return;
+    const existing = label.querySelector(".visBtn");
+    if (existing) {
+        label.dataset.layerRow = String(L);
+        ensureLayerMoveControls(label, L);
+        visBtnByLayer.set(L, existing);
+        updateVisBtn(L);
+        return;
+    }
+    if (L === PAPER_LAYER) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "visBtn";
+    btn.dataset.layer = String(L);
+    btn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const wasHidden = layerIsHidden(L);
+        setLayerVisibility(L, wasHidden);
+        updateVisBtn(L);
+    });
+    label.insertBefore(btn, label.firstChild);
+    label.dataset.layerRow = String(L);
+    ensureLayerMoveControls(label, L);
+    if (!label._opacityCtxWired) {
+        label._opacityCtxWired = true;
+        label.addEventListener("contextmenu", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            openLayerRowMenu(L, e);
+        }, {
+            passive: false
+        });
+    }
+    visBtnByLayer.set(L, btn);
+    updateVisBtn(L);
+}
+
+function wireLayerVisButtons() {
+    applyLayerSegOrder();
+    injectVisBtn("bt-paper", PAPER_LAYER);
+    injectVisBtn("bt-fill", LAYER.FILL);
+    injectVisBtn("bt-sketch", LAYER.COLOR);
+    injectVisBtn("bt-color", LAYER.SHADE);
+    injectVisBtn("bt-line", LAYER.LINE);
+    injectVisBtn("bt-sketch-layer", LAYER.SKETCH);
+    updateVisBtn(LAYER.FILL);
+    updateVisBtn(LAYER.COLOR);
+    updateVisBtn(LAYER.SHADE);
+    updateVisBtn(LAYER.LINE);
+    updateVisBtn(LAYER.SKETCH);
+    updateLayerMoveButtons();
 }

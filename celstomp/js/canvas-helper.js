@@ -1,21 +1,4 @@
-const CANVAS_TYPE = {
-  boundsCanvas: 0,
-  drawCanvas: 1,
-  fxCanvas: 2
-}
 
-function getCanvas(t) {
-  switch(t) {
-    case CANVAS_TYPE.boundsCanvas:
-      return $("boundsCanvas");
-    case CANVAS_TYPE.drawCanvas:
-      return $("drawCanvas");
-    case CANVAS_TYPE.fxCanvas:
-      return $("fxCanvas");
-    default:
-      return null;
-  }
-}
 
 function getCanvasPointer(e) {
   const drawCanvas = $("drawCanvas");
@@ -77,20 +60,51 @@ function resizeCanvases() {
   initBrushCursorPreview(drawCanvas);
 }
 
+function fxStamp1px(x0, y0, x1, y1) {
+  const s = 1;
+  const dx = x1 - x0, dy = y1 - y0;
+  const dist = Math.hypot(dx, dy);
+  const step = .5;
+  const n = Math.max(1, Math.ceil(dist / step));
+  const nx = dx / n, ny = dy / n;
+
+  // dont like doing this here
+  const fxctx = getCanvas(CANVAS_TYPE.fxCanvas).getContext("2d");
+
+  fxctx.save();
+  fxctx.globalCompositeOperation = "source-over";
+  fxctx.globalAlpha = 1;
+  fxctx.fillStyle = fillBrushTrailColor;
+  for (let i = 0; i <= n; i++) {
+      const px = Math.round(x0 + nx * i - s / 2);
+      const py = Math.round(y0 + ny * i - s / 2);
+      fxctx.fillRect(px, py, s, s);
+  }
+  fxctx.restore();
+}
+
+function fxTransform() {
+  let dpr = window.devicePixelRatio || 1;
+  const fxctx = getCanvas(CANVAS_TYPE.fxCanvas).getContext("2d");
+  fxctx.setTransform(getZoom() * dpr, 0, 0, getZoom() * dpr, getOffsetX(), getOffsetY());
+}
+
 function setTransform(ctx) {
+  let dpr = window.devicePixelRatio || 1;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.setTransform(getZoom() * dpr, 0, 0, getZoom() * dpr, getOffsetX(), getOffsetY());
 }
 
 function centerView() {
+  let dpr = window.devicePixelRatio || 1;
   const drawCanvas = getCanvas(CANVAS_TYPE.drawCanvas);
   const cw = drawCanvas.width;
   const ch = drawCanvas.height;
   setOffsetX((cw - contentW * getZoom() * dpr) / 2);
   setOffsetY((ch - contentH * getZoom() * dpr) / 2);
-  updateHUD();
-  renderAll();
+  queueUpdateHud();
+  queueRenderAll();
   updatePlayheadMarker();
   updateClipMarkers();
 }

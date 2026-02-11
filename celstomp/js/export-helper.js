@@ -773,8 +773,38 @@ function loadProject(file, options = {}) {
               queueRenderAll();
           } catch {}
           try {
-              queueUpdateHUD();
+              queueUpdateHud();
           } catch {}
+
+          const brushSizeInput = $("brushSize") || $("brushSizeRange");
+          const brushSizeNumInput = $("brushSizeNum");
+          const eraserSizeInput = $("eraserSize");
+
+          const brushVal = $("brushVal");
+          const eraserVal = $("eraserVal");
+
+          const aaToggle = $("aaToggle");
+
+          const bgColorInput = $("bgColor");
+
+          const snapValue = $("snapValue");
+
+          const autofillToggle = $("autofillToggle");
+
+          const onionPrevColorInput = $("onionPrevColor");
+          const onionNextColorInput = $("onionNextColor");
+
+          const onionAlphaInput = $("onionAlpha");
+          const onionAlphaVal = $("onionAlphaVal");
+
+          const playSnappedChk = $("playSnapped");
+
+          const keepOnionPlayingChk = $("keepOnionPlaying");
+          const keepTransPlayingChk = $("keepTransPlaying");
+
+          const toggleOnionBtn = $("toggleOnion");
+          const toggleTransparencyBtn = $("toggleTransparency");
+
           safeSetValue(brushSizeInput, brushSize);
           safeSetValue(brushSizeNumInput, brushSize);
           safeSetValue(eraserSizeInput, eraserSize);
@@ -812,7 +842,7 @@ function loadProject(file, options = {}) {
               centerView?.();
           } catch {}
           try {
-              queueUpdateHUD();
+              queueUpdateHud();
           } catch {}
           try {
               if (typeof gotoFrame === "function") gotoFrame(currentFrame);
@@ -831,4 +861,132 @@ function loadProject(file, options = {}) {
       });
   };
   fr.readAsText(file);
+}
+
+function askImgSeqExportOptions() {
+  const exportImgSeqModal = $("exportImgSeqModal");
+  const exportImgSeqModalBackdrop = $("exportImgSeqModalBackdrop");
+  const exportImgSeqTransparencyToggle = $("exportImgSeqTransparency");
+  const exportImgSeqConfirmBtn = $("exportImgSeqConfirmBtn");
+  const exportImgSeqCancelBtn = $("exportImgSeqCancelBtn");
+
+  return new Promise(resolve => {
+      if (!exportImgSeqModal || !exportImgSeqModalBackdrop || !exportImgSeqConfirmBtn || !exportImgSeqCancelBtn) {
+          resolve({
+              transparent: false
+          });
+          return;
+      }
+      exportImgSeqModal.hidden = false;
+      exportImgSeqModalBackdrop.hidden = false;
+      const cleanup = value => {
+          exportImgSeqModal.hidden = true;
+          exportImgSeqModalBackdrop.hidden = true;
+          exportImgSeqConfirmBtn.removeEventListener("click", onConfirm);
+          exportImgSeqCancelBtn.removeEventListener("click", onCancel);
+          exportImgSeqModalBackdrop.removeEventListener("click", onCancel);
+          document.removeEventListener("keydown", onEsc);
+          resolve(value);
+      };
+      const onConfirm = () => cleanup({
+          transparent: !!exportImgSeqTransparencyToggle?.checked
+      });
+      const onCancel = () => cleanup(null);
+      const onEsc = e => {
+          if (e.key === "Escape") cleanup(null);
+      };
+      exportImgSeqConfirmBtn.addEventListener("click", onConfirm);
+      exportImgSeqCancelBtn.addEventListener("click", onCancel);
+      exportImgSeqModalBackdrop.addEventListener("click", onCancel);
+      document.addEventListener("keydown", onEsc);
+  });
+}
+
+function askGifExportOptions() {
+  const exportGifModal = $("exportGifModal");
+  const exportGifModalBackdrop = $("exportGifModalBackdrop");
+  const exportGifConfirmBtn = $("exportGifConfirmBtn");
+  const exportGifCancelBtn = $("exportGifCancelBtn");
+
+  const exportGifTransparencyToggle = $("exportGifTransparency");
+  const exportGifLoopToggle = $("exportGifLoop");
+
+  const exportGifFpsInput = $("exportGifFps");
+
+  return new Promise(resolve => {
+      if (!exportGifModal || !exportGifModalBackdrop || !exportGifConfirmBtn || !exportGifCancelBtn) {
+          resolve({
+              fps: Math.max(1, Math.min(60, fps || 12)),
+              transparent: false,
+              loop: true
+          });
+          return;
+      }
+      safeSetValue(exportGifFpsInput, Math.max(1, Math.min(60, fps || 12)));
+      exportGifModal.hidden = false;
+      exportGifModalBackdrop.hidden = false;
+      const cleanup = value => {
+          exportGifModal.hidden = true;
+          exportGifModalBackdrop.hidden = true;
+          exportGifConfirmBtn.removeEventListener("click", onConfirm);
+          exportGifCancelBtn.removeEventListener("click", onCancel);
+          exportGifModalBackdrop.removeEventListener("click", onCancel);
+          document.removeEventListener("keydown", onEsc);
+          resolve(value);
+      };
+      const onConfirm = () => {
+          const f = Math.max(1, Math.min(60, parseInt(exportGifFpsInput?.value, 10) || fps || 12));
+          cleanup({
+              fps: f,
+              transparent: !!exportGifTransparencyToggle?.checked,
+              loop: !!exportGifLoopToggle?.checked
+          });
+      };
+      const onCancel = () => cleanup(null);
+      const onEsc = e => {
+          if (e.key === "Escape") cleanup(null);
+      };
+      exportGifConfirmBtn.addEventListener("click", onConfirm);
+      exportGifCancelBtn.addEventListener("click", onCancel);
+      exportGifModalBackdrop.addEventListener("click", onCancel);
+      document.addEventListener("keydown", onEsc);
+  });
+}
+function askAutosaveIntervalOptions() {
+  const autosaveIntervalModal = $("autosaveIntervalModal");
+  const autosaveIntervalModalBackdrop = $("autosaveIntervalModalBackdrop");
+  const autosaveIntervalMinutesInput = $("autosaveIntervalMinutesInput");
+  const autosaveIntervalConfirmBtn = $("autosaveIntervalConfirmBtn");
+  const autosaveIntervalCancelBtn = $("autosaveIntervalCancelBtn");
+
+  return new Promise(resolve => {
+      if (!autosaveIntervalModal || !autosaveIntervalModalBackdrop || !autosaveIntervalConfirmBtn || !autosaveIntervalCancelBtn) {
+          resolve(null);
+          return;
+      }
+      safeSetValue(autosaveIntervalMinutesInput, autosaveIntervalMinutes);
+      autosaveIntervalModal.hidden = false;
+      autosaveIntervalModalBackdrop.hidden = false;
+      const cleanup = value => {
+          autosaveIntervalModal.hidden = true;
+          autosaveIntervalModalBackdrop.hidden = true;
+          autosaveIntervalConfirmBtn.removeEventListener("click", onConfirm);
+          autosaveIntervalCancelBtn.removeEventListener("click", onCancel);
+          autosaveIntervalModalBackdrop.removeEventListener("click", onCancel);
+          document.removeEventListener("keydown", onEsc);
+          resolve(value);
+      };
+      const onConfirm = () => {
+          const mins = clamp(parseInt(autosaveIntervalMinutesInput?.value, 10) || autosaveIntervalMinutes || 1, 1, 120);
+          cleanup(mins);
+      };
+      const onCancel = () => cleanup(null);
+      const onEsc = e => {
+          if (e.key === "Escape") cleanup(null);
+      };
+      autosaveIntervalConfirmBtn.addEventListener("click", onConfirm);
+      autosaveIntervalCancelBtn.addEventListener("click", onCancel);
+      autosaveIntervalModalBackdrop.addEventListener("click", onCancel);
+      document.addEventListener("keydown", onEsc);
+  });
 }

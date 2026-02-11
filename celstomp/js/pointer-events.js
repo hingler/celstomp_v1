@@ -11,6 +11,8 @@ let usePressureTilt = false;
 let brushSize = 3;
 let autofill = false;
 
+let trailPoints = [];
+
 function pressure(e) {
     const pid = Number.isFinite(e?.pointerId) ? e.pointerId : -1;
     const isPen = e?.pointerType === "pen";
@@ -762,6 +764,10 @@ function endCtrlMove(e) {
   _ctrlMove.snap = null;
 }
 
+////////////////////
+// RECT SELECTION //
+////////////////////
+
 function clearRectSelection() {
     rectSelection.active = false;
     rectSelection.moving = false;
@@ -907,4 +913,523 @@ function endRectSelect() {
         return;
     }
     queueRenderAll();
+}
+
+function applyFillRegionsFromSeeds(F, seeds, targetLayer) {
+    let masks = insideMaskFromLineartOnly(F, closeGapPx);
+    if (!masks && typeof combinedInsideMask_LineColor === "function") {
+        masks = combinedInsideMask_LineColor(F, closeGapPx);
+    }
+    if (!masks) return false;
+    const {closed: closed, outside: outside, w: w, h: h} = masks;
+    const visited = new Uint8Array(w * h);
+    const layer = typeof targetLayer === "number" ? targetLayer : LAYER.FILL;
+    const key = fillKeyForTool(layer, "fill-brush");
+    if (!key) return false;
+    if (layer === LAYER.FILL) {
+        if (Array.isArray(activeSubColor)) activeSubColor[LAYER.FILL] = key;
+        ensureSublayer(LAYER.FILL, key);
+        try {
+            renderLayerSwatches(LAYER.FILL);
+        } catch {}
+    } else {
+        ensureActiveSwatchForColorLayer(layer, key);
+    }
+    const fillCanvas = getFrameCanvas(layer, F, key);
+    const fctx = fillCanvas.getContext("2d", {
+        willReadFrequently: true
+    });
+    const img = fctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const tmp = document.createElement("canvas").getContext("2d", {
+        willReadFrequently: true
+    });
+    tmp.fillStyle = key;
+    tmp.fillRect(0, 0, 1, 1);
+    const c = tmp.getImageData(0, 0, 1, 1).data;
+    const qx = new Uint32Array(w * h), qy = new Uint32Array(w * h);
+    let qs = 0, qe = 0;
+    function push(x, y) {
+        qx[qe] = x;
+        qy[qe] = y;
+        qe++;
+    }
+    function inBounds(x, y) {
+        return x >= 0 && y >= 0 && x < w && y < h;
+    }
+    function isInside(x, y) {
+        const idx = y * w + x;
+        return !outside[idx] && !closed[idx];
+    }
+    let any = false;
+    function floodSeed(sx, sy) {
+        sx |= 0;
+        sy |= 0;
+        if (!inBounds(sx, sy)) return;
+        const si = sy * w + sx;
+        if (visited[si] || !isInside(sx, sy)) return;
+        visited[si] = 1;
+        push(sx, sy);
+        while (qs < qe) {
+            const x = qx[qs], y = qy[qs];
+            qs++;
+            const idx = y * w + x;
+            const i4 = idx * 4;
+            d[i4 + 0] = c[0];
+            d[i4 + 1] = c[1];
+            d[i4 + 2] = c[2];
+            d[i4 + 3] = 255;
+            any = true;
+            const nbs = [ [ x + 1, y ], [ x - 1, y ], [ x, y + 1 ], [ x, y - 1 ] ];
+            for (const [nx, ny] of nbs) {
+                if (!inBounds(nx, ny)) continue;
+                const j = ny * w + nx;
+                if (visited[j]) continue;
+                if (!isInside(nx, ny)) continue;
+                visited[j] = 1;
+                push(nx, ny);
+            }
+        }
+        qs = 0;
+        qe = 0;
+    }
+    for (const pt of seeds) floodSeed(Math.round(pt.x), Math.round(pt.y));
+    if (!any) return false;
+    fctx.putImageData(img, 0, 0);
+    fillCanvas._hasContent = true;
+    queueRenderAll();
+    updateTimelineHasContent(F);
+    return true;
+}
+
+// fill tools
+
+function eraseFillRegionsFromSeeds(a, b, c, d) {
+    let layer, F, seeds, strokePts;
+    if (Array.isArray(b)) {
+        F = Number(a);
+        seeds = b;
+        layer = typeof c === "number" ? c : LAYER.FILL;
+        strokePts = Array.isArray(d) && d.length ? d : seeds;
+    } else if (Array.isArray(c)) {
+        layer = typeof a === "number" ? a : LAYER.FILL;
+        F = Number(b);
+        seeds = c;
+        strokePts = Array.isArray(d) && d.length ? d : seeds;
+    } else {
+        return false;
+    }
+    const pts = Array.isArray(strokePts) && strokePts.length ? strokePts : seeds;
+    if (!Array.isArray(pts) || !pts.length) return false;
+    if (!Array.isArray(seeds) || !seeds.length) seeds = pts;
+    if (!Number.isFinite(F)) F = currentFrame;
+    const masks = combinedInsideMask_LineColor(F, closeGapPx);
+    if (!masks) return false;
+    const {closed: closed, outside: outside, w: w, h: h} = masks;
+    const inBounds = (x, y) => x >= 0 && y >= 0 && x < w && y < h;
+    const idxOf = (x, y) => y * w + x;
+    const isInsideIdx = idx => !outside[idx] && !closed[idx];
+    const seedIdxs = [];
+    for (const pt of pts) {
+        const sx = Math.round(pt.x), sy = Math.round(pt.y);
+        if (!inBounds(sx, sy)) continue;
+        const si = idxOf(sx, sy);
+        if (isInsideIdx(si)) seedIdxs.push(si);
+    }
+    if (!seedIdxs.length) return false;
+    const AUTO_PICK_UNDER_STROKE = false;
+    function pickExistingKey(L, want) {
+        const lay = layers?.[L];
+        const subMap = lay?.sublayers;
+        if (!subMap || !subMap.get) return null;
+        const hasKey = k => !!k && (subMap.has?.(k) || !!subMap.get(k));
+        if (typeof resolveKeyFor === "function") {
+            try {
+                const rk = resolveKeyFor(L, want);
+                if (hasKey(rk)) return rk;
+            } catch {}
+        }
+        if (hasKey(want)) return want;
+        if (typeof want === "string") {
+            const n = typeof normHex6 === "function" ? normHex6(want) : null;
+            if (n && hasKey(n)) return n;
+            if (n && hasKey(n.toLowerCase())) return n.toLowerCase();
+            if (hasKey(want.toUpperCase())) return want.toUpperCase();
+            if (hasKey(want.toLowerCase())) return want.toLowerCase();
+        }
+        return null;
+    }
+    function keysHitUnderStroke(L, preferredKey) {
+        const lay = layers?.[L];
+        const subMap = lay?.sublayers;
+        if (!subMap || !subMap.get) return [];
+        const out = [];
+        const seen = new Set;
+        const tryAdd = k => {
+            if (!k || seen.has(k)) return;
+            if (!(subMap.has?.(k) || subMap.get(k))) return;
+            seen.add(k);
+            out.push(k);
+        };
+        tryAdd(preferredKey);
+        if (AUTO_PICK_UNDER_STROKE) {
+            const order = Array.isArray(lay?.suborder) ? lay.suborder : [];
+            for (let i = order.length - 1; i >= 0; i--) {
+                const k = order[i];
+                if (!k || seen.has(k)) continue;
+                const sub = subMap.get(k);
+                const canvas = sub?.frames?.[F] || null;
+                if (!canvas) continue;
+                if ((canvas.width | 0) !== w || (canvas.height | 0) !== h) continue;
+                if (canvas._hasContent === false) continue;
+                const ctx = canvas.getContext("2d", {
+                    willReadFrequently: true
+                });
+                if (!ctx) continue;
+                let img;
+                try {
+                    img = ctx.getImageData(0, 0, w, h);
+                } catch {
+                    continue;
+                }
+                const dpx = img.data;
+                let hit = false;
+                for (let s = 0; s < seedIdxs.length; s++) {
+                    if (dpx[seedIdxs[s] * 4 + 3]) {
+                        hit = true;
+                        break;
+                    }
+                }
+                if (hit) tryAdd(k);
+            }
+        }
+        return out;
+    }
+    const layersToErase = layer === -1 ? MAIN_LAYERS.slice() : [ layer ];
+    let didAny = false;
+    const qx = new Uint32Array(w * h);
+    const qy = new Uint32Array(w * h);
+    for (const L of layersToErase) {
+        const lay = layers?.[L];
+        const subMap = lay?.sublayers;
+        if (!subMap || !subMap.get) continue;
+        const want = L === LAYER.FILL ? activeSubColor?.[LAYER.FILL] || fillWhite || "#FFFFFF" : activeSubColor?.[L] ?? currentColor;
+        const preferredKey = pickExistingKey(L, want);
+        const keys = keysHitUnderStroke(L, preferredKey);
+        for (const key of keys) {
+            const sub = subMap.get(key);
+            const canvas = sub?.frames?.[F] || null;
+            if (!canvas) continue;
+            if ((canvas.width | 0) !== w || (canvas.height | 0) !== h) continue;
+            const ctx = canvas.getContext("2d", {
+                willReadFrequently: true
+            });
+            if (!ctx) continue;
+            let img;
+            try {
+                img = ctx.getImageData(0, 0, w, h);
+            } catch {
+                continue;
+            }
+            const dpx = img.data;
+            let undoPushed = false;
+            const ensureUndoOnce = () => {
+                if (undoPushed) return;
+                undoPushed = true;
+                try {
+                    pushUndo(L, F, key);
+                } catch {}
+            };
+            const visited = new Uint8Array(w * h);
+            function floodFromSeedIdx(si) {
+                if (visited[si] || !isInsideIdx(si)) return false;
+                let qs = 0, qe = 0;
+                visited[si] = 1;
+                qx[qe] = si % w;
+                qy[qe] = si / w | 0;
+                qe++;
+                let anyHere = false;
+                while (qs < qe) {
+                    const x = qx[qs], y = qy[qs];
+                    qs++;
+                    const idx = idxOf(x, y);
+                    const a4 = idx * 4 + 3;
+                    if (dpx[a4]) {
+                        ensureUndoOnce();
+                        dpx[a4] = 0;
+                        anyHere = true;
+                    }
+                    if (x + 1 < w) {
+                        const ni = idx + 1;
+                        if (!visited[ni] && isInsideIdx(ni)) {
+                            visited[ni] = 1;
+                            qx[qe] = x + 1;
+                            qy[qe] = y;
+                            qe++;
+                        }
+                    }
+                    if (x - 1 >= 0) {
+                        const ni = idx - 1;
+                        if (!visited[ni] && isInsideIdx(ni)) {
+                            visited[ni] = 1;
+                            qx[qe] = x - 1;
+                            qy[qe] = y;
+                            qe++;
+                        }
+                    }
+                    if (y + 1 < h) {
+                        const ni = idx + w;
+                        if (!visited[ni] && isInsideIdx(ni)) {
+                            visited[ni] = 1;
+                            qx[qe] = x;
+                            qy[qe] = y + 1;
+                            qe++;
+                        }
+                    }
+                    if (y - 1 >= 0) {
+                        const ni = idx - w;
+                        if (!visited[ni] && isInsideIdx(ni)) {
+                            visited[ni] = 1;
+                            qx[qe] = x;
+                            qy[qe] = y - 1;
+                            qe++;
+                        }
+                    }
+                }
+                return anyHere;
+            }
+            let any = false;
+            for (let s = 0; s < seedIdxs.length; s++) {
+                if (floodFromSeedIdx(seedIdxs[s])) any = true;
+            }
+            if (!any) continue;
+            ctx.putImageData(img, 0, 0);
+            let anyAlpha = false;
+            for (let i = 3; i < dpx.length; i += 4) {
+                if (dpx[i]) {
+                    anyAlpha = true;
+                    break;
+                }
+            }
+            canvas._hasContent = anyAlpha;
+            didAny = true;
+        }
+        if (didAny) {
+            try {
+                pruneUnusedSublayers?.(L);
+            } catch {}
+        }
+    }
+    if (!didAny) return false;
+    queueRenderAll();
+    updateTimelineHasContent(F);
+    return true;
+}
+
+function morphologicalClose(mask, w, h, gapPx) {
+    const r = Math.max(0, Math.round(gapPx));
+    function dilate(src) {
+        const dst = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let v = 0;
+                for (let oy = -1; oy <= 1; oy++) {
+                    for (let ox = -1; ox <= 1; ox++) {
+                        const nx = x + ox, ny = y + oy;
+                        if (nx >= 0 && ny >= 0 && nx < w && ny < h && src[ny * w + nx]) {
+                            v = 1;
+                            oy = 2;
+                            break;
+                        }
+                    }
+                }
+                dst[y * w + x] = v;
+            }
+        }
+        return dst;
+    }
+    function erode(src) {
+        const dst = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let v = 1;
+                for (let oy = -1; oy <= 1; oy++) {
+                    for (let ox = -1; ox <= 1; ox++) {
+                        const nx = x + ox, ny = y + oy;
+                        if (!(nx >= 0 && ny >= 0 && nx < w && ny < h) || !src[ny * w + nx]) {
+                            v = 0;
+                            oy = 2;
+                            break;
+                        }
+                    }
+                }
+                dst[y * w + x] = v;
+            }
+        }
+        return dst;
+    }
+    let closed = mask;
+    if (r > 0) {
+        const reps = Math.max(1, Math.round(r / 2));
+        for (let i = 0; i < reps; i++) closed = dilate(closed);
+        for (let i = 0; i < reps; i++) closed = erode(closed);
+    }
+    return closed;
+}
+function computeOutsideFromClosed(closed, w, h) {
+    const outside = new Uint8Array(w * h);
+    const qx = new Uint32Array(w * h);
+    const qy = new Uint32Array(w * h);
+    let qs = 0, qe = 0;
+    function push(x, y) {
+        qx[qe] = x;
+        qy[qe] = y;
+        qe++;
+    }
+    function mark(x, y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return;
+        const idx = y * w + x;
+        if (outside[idx] || closed[idx]) return;
+        outside[idx] = 1;
+        push(x, y);
+    }
+    for (let x = 0; x < w; x++) {
+        mark(x, 0);
+        mark(x, h - 1);
+    }
+    for (let y = 0; y < h; y++) {
+        mark(0, y);
+        mark(w - 1, y);
+    }
+    while (qs < qe) {
+        const x = qx[qs], y = qy[qs];
+        qs++;
+        mark(x + 1, y);
+        mark(x - 1, y);
+        mark(x, y + 1);
+        mark(x, y - 1);
+    }
+    return outside;
+} 
+
+function combinedInsideMask_LineColor(F, gapPx, targetLayer = null) {
+    const w = contentW, h = contentH;
+    const lineCanvases = canvasesWithContentForMainLayerFrame(LAYER.LINE, F);
+    const colorCanvases = targetLayer === LAYER.COLOR ? [] : canvasesWithContentForMainLayerFrame(LAYER.COLOR, F);
+    if (!lineCanvases.length && !colorCanvases.length) return null;
+    const mask = new Uint8Array(w * h);
+    function addMaskFrom(canvas) {
+        const ctx = canvas.getContext("2d", {
+            willReadFrequently: true
+        });
+        const im = ctx.getImageData(0, 0, w, h).data;
+        for (let i = 0, p = 0; i < im.length; i += 4, p++) {
+            if (im[i + 3] > 10) mask[p] = 1;
+        }
+    }
+    for (const c of lineCanvases) addMaskFrom(c);
+    for (const c of colorCanvases) addMaskFrom(c);
+    const closed = morphologicalClose(mask, w, h, gapPx);
+    const outside = computeOutsideFromClosed(closed, w, h);
+    return {
+        closed: closed,
+        outside: outside,
+        w: w,
+        h: h
+    };
+}
+
+function fillKeyForTool(L, toolKind) {
+    if (L === PAPER_LAYER) return null;
+    const cur = colorToHex(currentColor ?? "#000000");
+    if (L === LAYER.FILL) {
+        if (toolKind === "fill-brush") return cur;
+        if (toolKind === "fill-eraser") return activeSubColor?.[LAYER.FILL] || fillWhite;
+        return fillWhite;
+    }
+    if (toolKind === "fill-brush") return cur;
+    return colorToHex(activeSubColor?.[L] ?? currentColor ?? "#000000");
+}
+function ensureActiveSwatchForColorLayer(L, key) {
+    if (L == null || L === PAPER_LAYER || L === LAYER.FILL) return;
+    if (Array.isArray(activeSubColor)) activeSubColor[L] = key;
+    ensureSublayer(L, key);
+    try {
+        normalizeLayerSwatchKeys(layer);
+    } catch {}
+    try {
+        renderLayerSwatches(L);
+    } catch {}
+}
+
+function insideMaskFromLineartOnly(F, gapPx) {
+    const w = contentW | 0, h = contentH | 0;
+    const lineCanvases = canvasesWithContentForMainLayerFrame(LAYER.LINE, F);
+    if (!lineCanvases || !lineCanvases.length) return null;
+    const mask = new Uint8Array(w * h);
+    for (const canvas of lineCanvases) {
+        const ctx = canvas.getContext("2d", {
+            willReadFrequently: true
+        });
+        if (!ctx) continue;
+        const data = ctx.getImageData(0, 0, w, h).data;
+        for (let i = 3, p = 0; i < data.length; i += 4, p++) {
+            if (data[i] > 10) mask[p] = 1;
+        }
+    }
+    const closed = morphologicalClose(mask, w, h, gapPx);
+    const outside = computeOutsideFromClosed(closed, w, h);
+    return {
+        closed: closed,
+        outside: outside,
+        w: w,
+        h: h
+    };
+}
+function fillFromLineart(F) {
+    const w = contentW, h = contentH;
+    const lineCanvases = canvasesWithContentForMainLayerFrame(LAYER.LINE, F);
+    if (!lineCanvases.length) return false;
+    const mask = new Uint8Array(w * h);
+    for (const canvas of lineCanvases) {
+        const srcCtx = canvas.getContext("2d", {
+            willReadFrequently: true
+        });
+        const data = srcCtx.getImageData(0, 0, w, h).data;
+        for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+            if (data[i + 3] > 10) mask[p] = 1;
+        }
+    }
+    const closed = morphologicalClose(mask, w, h, closeGapPx);
+    const outside = computeOutsideFromClosed(closed, w, h);
+    const fillCanvas = getFrameCanvas(LAYER.FILL, F, fillWhite);
+    const fctx = fillCanvas.getContext("2d");
+    const out = fctx.createImageData(w, h);
+    const od = out.data;
+    const tmp = document.createElement("canvas").getContext("2d", {
+        willReadFrequently: true
+    });
+    tmp.fillStyle = fillWhite;
+    tmp.fillRect(0, 0, 1, 1);
+    const c = tmp.getImageData(0, 0, 1, 1).data;
+    let any = false;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const p = y * w + x;
+            const i4 = p * 4;
+            if (!outside[p] && !closed[p]) {
+                od[i4 + 0] = c[0];
+                od[i4 + 1] = c[1];
+                od[i4 + 2] = c[2];
+                od[i4 + 3] = 255;
+                any = true;
+            }
+        }
+    }
+    if (!any) return false;
+    fctx.putImageData(out, 0, 0);
+    fillCanvas._hasContent = true;
+    queueRenderAll();
+    updateTimelineHasContent(F);
+    return true;
 }

@@ -25,6 +25,7 @@
         './js/history-helper.js',
         './js/brush-helper.js',
         './js/canvas-helper.js',
+        './js/lasso-helper.js',
         './js/pointer-events.js',
         './js/menu-wires.js',
         './js/mobile-native-zoom-guard.js',
